@@ -69,23 +69,21 @@ label.field{display:block;font-size:13px;font-weight:500;color:var(--muted);marg
 .err{color:var(--danger);font-size:13px;min-height:1em}
 
 /* ---------- Room ---------- */
-.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px max(16px,calc((100vw - 1180px)/2));background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px max(16px,calc((100vw - 860px)/2 + 16px));background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
 .session{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;letter-spacing:.08em;background:var(--surface-2);border-radius:8px;padding:4px 8px;font-size:13px}
 .conn{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);white-space:nowrap}
 .conn::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--warn)}
 .conn.ok::before{background:var(--ok)}
 .conn.bad::before{background:var(--danger)}
-.layout{max-width:1180px;margin:0 auto;padding:20px 16px 40px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
-@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
+.layout{max-width:860px;margin:0 auto;padding:20px 16px 40px}
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
 .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px;font-weight:600}
-.side{display:flex;flex-direction:column;gap:16px}
 .stage{display:flex;flex-direction:column;gap:16px;min-width:0}
 
+.current{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.current h1{font-size:22px;line-height:1.3;letter-spacing:-.015em;margin:0}
 .current .eyebrow{font-size:13px;color:var(--muted);font-weight:500}
-.current h1{font-size:22px;line-height:1.3;letter-spacing:-.015em;margin:4px 0 0;overflow-wrap:anywhere}
-.current h1.placeholder{color:var(--muted);font-weight:500}
 
 .table-wrap{padding:22px 18px}
 .progress{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
@@ -126,8 +124,6 @@ label.field{display:block;font-size:13px;font-weight:500;color:var(--muted);marg
 .chip b{font-weight:700}
 .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .actions .lbl{font-size:13px;color:var(--muted);margin-right:2px}
-.est{min-width:44px}
-.est.suggest{border-color:var(--accent);color:var(--accent);font-weight:700}
 
 .deck-wrap{position:sticky;bottom:0;z-index:4;padding:12px 0 calc(12px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent)}
 .deck{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
@@ -138,25 +134,9 @@ label.field{display:block;font-size:13px;font-weight:500;color:var(--muted);marg
 @media (max-width:420px){.dcard{width:44px;height:64px;font-size:18px;border-radius:10px}.deck{gap:6px}}
 .deck-note{text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
 
-.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:48vh;overflow:auto}
-.items li{display:flex;align-items:center;gap:8px;border-radius:10px;padding:2px 4px 2px 2px}
-.items li.cur{background:var(--accent-soft)}
-.items .sel{flex:1;min-width:0;text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:8px;display:flex;gap:8px;align-items:baseline}
-.items .sel:hover:not(:disabled){background:var(--surface-2)}
-.items li.cur .sel:hover{background:transparent}
-.items .sel:disabled{cursor:default;opacity:1}
-.items .n{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;flex:none;width:18px}
-.items .t{overflow-wrap:anywhere}
-.items li.done .t{color:var(--muted)}
-.badge{flex:none;font-size:12px;font-weight:700;background:var(--surface-2);border-radius:99px;padding:2px 9px}
-.items li.cur .badge{background:var(--surface)}
-.x{flex:none;border:0;background:transparent;color:var(--muted);width:28px;height:28px;border-radius:8px;font-size:16px;line-height:1}
-.x:hover{background:var(--surface-2);color:var(--danger)}
-.add{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
-.sum{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
-.sum b{color:var(--text)}
-.me{display:flex;flex-direction:column;gap:12px}
+.me{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .me .who{font-weight:600}
+.me .note{flex-basis:100%;margin:0}
 .check{display:flex;align-items:center;gap:10px;font-weight:500}
 .check input{width:18px;height:18px;accent-color:var(--accent)}
 .muted{color:var(--muted)}
@@ -315,11 +295,8 @@ function analyze(people) {
   if (!nums.length) return { voted, nums, special, counts };
   const vals = nums.map(p => NUMERIC[p.vote]);
   const min = Math.min(...vals), max = Math.max(...vals);
-  // Vorschlag: häufigster Zahlenwert, bei Gleichstand der höhere
-  let suggest = null, best = -1;
-  Object.keys(NUMERIC).forEach(k => { const c = counts[k] || 0; if (c > 0 && c >= best) { best = c; suggest = k; } });
   return {
-    voted, nums, special, counts, min, max, suggest,
+    voted, nums, special, counts, min, max,
     consensus: min === max,
     lows: nums.filter(p => NUMERIC[p.vote] === min),
     highs: nums.filter(p => NUMERIC[p.vote] === max),
@@ -415,23 +392,11 @@ function mountRoom(code, isHost, actions) {
   <main class="layout">
     <section class="stage">
       <div id="banner"></div>
-      <div class="panel current"><div class="eyebrow" id="eyebrow"></div><h1 id="curTitle"></h1></div>
+      <div class="panel current"><div><div class="eyebrow" id="eyebrow">Runde</div><h1 id="curTitle"></h1></div><div class="me" id="me"></div></div>
       <div class="panel table-wrap" id="table"></div>
       <div id="result"></div>
       <div class="deck-wrap" id="deckWrap"></div>
     </section>
-    <aside class="side">
-      <section class="panel">
-        <h2>Backlog</h2>
-        ${isHost ? `<div class="add">
-          <textarea id="newItems" class="input" rows="2" maxlength="4000" placeholder="Item eintippen · mehrere: eins pro Zeile"></textarea>
-          <button class="btn" id="addBtn">Hinzufügen</button>
-        </div>` : ""}
-        <ol class="items" id="items"></ol>
-        <div id="sum"></div>
-      </section>
-      <section class="panel"><h2>Du</h2><div class="me" id="me"></div></section>
-    </aside>
   </main>`;
 
   $("#copy").onclick = async () => {
@@ -439,16 +404,6 @@ function mountRoom(code, isHost, actions) {
     try { await navigator.clipboard.writeText(url); toast("Link kopiert"); }
     catch { prompt("Link zum Teilen:", url); }
   };
-  if (isHost) {
-    const add = () => {
-      const ta = $("#newItems");
-      const lines = ta.value.split(/\r?\n/).map(l => clean(l, 200)).filter(Boolean);
-      if (!lines.length) return;
-      actions.addItems(lines); ta.value = ""; ta.focus();
-    };
-    $("#addBtn").onclick = add;
-    $("#newItems").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); add(); } });
-  }
   // Eine Ereignisbehandlung für alle dynamischen Knöpfe
   app.addEventListener("click", e => {
     const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
@@ -456,12 +411,8 @@ function mountRoom(code, isHost, actions) {
     if (a === "vote") actions.vote(v);
     else if (a === "reveal") actions.reveal();
     else if (a === "round") actions.newRound();
-    else if (a === "estimate") actions.setEstimate(v);
-    else if (a === "select") actions.setCurrent(v);
-    else if (a === "remove") actions.removeItem(v);
     else if (a === "kick") actions.removePerson(v);
     else if (a === "role") actions.setRole(v);
-    else if (a === "next") actions.nextItem();
   });
   app.addEventListener("change", e => {
     if (e.target.id === "hostVotes") actions.setHostVotes(e.target.checked);
@@ -484,16 +435,12 @@ function renderRoom(view, me) {
   const onlineVoters = voters.filter(p => p.online);
   const votedCount = onlineVoters.filter(p => p.voted).length;
   const observers = people.filter(p => !eligible(p));
-  const cur = view.items.find(i => i.id === view.currentId);
-  const curIdx = cur ? view.items.indexOf(cur) : -1;
   const iCanVote = self && eligible(self);
   const A = view.revealed ? analyze(people) : null;
 
-  /* Aktuelles Item */
-  $("#eyebrow").textContent = cur ? `Item ${curIdx + 1} von ${view.items.length} · Runde ${view.roundInItem}` : `Runde ${view.roundInItem}`;
-  const h = $("#curTitle");
-  if (cur) { h.textContent = cur.title; h.className = ""; }
-  else { h.textContent = view.items.length ? "Kein Item ausgewählt" : (isHost ? "Freie Runde: füge rechts Items hinzu" : "Freie Runde"); h.className = "placeholder"; }
+  /* Runde */
+  $("#eyebrow").textContent = view.revealed ? "Aufgedeckt" : "Abstimmung läuft";
+  $("#curTitle").textContent = "Runde " + view.round;
 
   /* Tisch */
   const spread = A && A.nums.length && !A.consensus;
@@ -511,11 +458,11 @@ function renderRoom(view, me) {
   };
   const pct = onlineVoters.length ? Math.round(votedCount / onlineVoters.length * 100) : 0;
   const progress = view.revealed
-    ? `<div><div class="count">Aufgedeckt</div><div class="muted small">${A.voted.length} Schätzung${A.voted.length === 1 ? "" : "en"}</div></div>`
+    ? `<div><div class="count">Ergebnis</div><div class="muted small">${A.voted.length} Schätzung${A.voted.length === 1 ? "" : "en"}</div></div>`
     : `<div><div class="count">${votedCount} von ${onlineVoters.length} haben gewählt</div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
   const hostBtns = isHost ? (view.revealed
       ? `<button class="btn" data-act="round">Neue Runde</button>`
-      : `<button class="btn primary" data-act="reveal" ${votedCount ? "" : "disabled"}>Jetzt aufdecken</button>`) : "";
+      : `<button class="btn ghost" data-act="round" title="Stimmen verwerfen und neu beginnen">Neu starten</button><button class="btn primary" data-act="reveal" ${votedCount ? "" : "disabled"}>Jetzt aufdecken</button>`) : "";
   $("#table").innerHTML = `
     <div class="progress">${progress}<div class="actions">${hostBtns}</div></div>
     ${voters.length ? `<div class="seats">${voters.map(seat).join("")}</div>` : `<div class="empty">Noch niemand schätzt mit. Teile den Link!</div>`}
@@ -541,13 +488,7 @@ function renderRoom(view, me) {
         <p class="hint">Tiefster und höchster Wert erklären kurz ihre Sicht, danach stimmt ihr neu ab.</p>
         <div class="dist">${dist}</div>`;
     }
-    if (isHost && cur) {
-      res += `<div class="actions"><span class="lbl">Wert fürs Item übernehmen:</span>${Object.keys(NUMERIC).map(k =>
-        `<button class="btn small est ${A.suggest === k ? "suggest" : ""}" data-act="estimate" data-v="${k}" ${A.suggest === k ? 'title="Häufigster Wert"' : ""}>${k}</button>`).join("")}</div>`;
-    }
     res = `<div class="panel result">${res}</div>`;
-  } else if (isHost && cur && cur.estimate != null) {
-    res = `<div class="panel result"><p class="hint">Dieses Item ist bereits mit <b>${esc(cur.estimate)}</b> geschätzt. Neue Stimmen überschreiben den Wert erst, wenn du einen übernimmst.</p></div>`;
   }
   $("#result").innerHTML = res;
 
@@ -560,24 +501,11 @@ function renderRoom(view, me) {
       <div class="deck-note">${view.revealed ? "Aufgedeckt. Warte auf die nächste Runde." : me.myVote != null ? "Gewählt. Nochmals tippen zum Zurücknehmen." : "Wähle deine Karte."}</div>`;
   } else { dw.style.display = "none"; dw.innerHTML = ""; }
 
-  /* Backlog */
-  const items = view.items;
-  $("#items").innerHTML = items.length ? items.map((it, i) => `
-    <li class="${it.id === view.currentId ? "cur" : ""} ${it.estimate != null ? "done" : ""}">
-      <button class="sel" data-act="select" data-v="${esc(it.id)}" ${isHost ? "" : "disabled"} ${isHost ? 'title="Als aktuelles Item wählen"' : ""}>
-        <span class="n">${i + 1}</span><span class="t">${esc(it.title)}</span></button>
-      ${it.estimate != null ? `<span class="badge">${esc(it.estimate)}</span>` : ""}
-      ${isHost ? `<button class="x" data-act="remove" data-v="${esc(it.id)}" title="Entfernen" aria-label="Item entfernen">×</button>` : ""}
-    </li>`).join("") : `<li class="muted small" style="padding:4px 2px">${isHost ? "Noch keine Items." : "Die Moderation hat noch keine Items erfasst."}</li>`;
-  const done = items.filter(i => i.estimate != null);
-  const total = done.reduce((s, i) => s + (NUMERIC[i.estimate] || 0), 0);
-  $("#sum").innerHTML = items.length ? `<div class="sum"><span>${done.length} von ${items.length} geschätzt</span><span>Summe <b>${fmt(total)}</b></span></div>` : "";
-
   /* Du */
   let meHtml = `<div class="who">${esc(self ? self.name : "…")}</div>`;
   if (isHost) {
     meHtml += `<label class="check"><input type="checkbox" id="hostVotes" ${view.hostVotes ? "checked" : ""}> Ich schätze mit</label>
-      <p class="small muted" style="margin:0">Du moderierst. Schliesst du diesen Tab, endet die Session für alle. Ein Neuladen ist ok.</p>`;
+      <p class="small muted note">Du moderierst. Lass diesen Tab offen, sonst endet die Session für alle.</p>`;
   } else if (self) {
     meHtml += `<div class="seg" role="group" aria-label="Rolle">
       <button data-act="role" data-v="voter" aria-pressed="${self.role === "voter"}">Mitschätzen</button>
@@ -590,7 +518,7 @@ function renderRoom(view, me) {
 function startHost(code, name, restored) {
   const key = "sr-host-" + code;
   const S = restored || {
-    code, items: [], currentId: null, round: 1, roundInItem: 1, revealed: false, hostVotes: true,
+    code, round: 1, revealed: false, hostVotes: true,
     people: {}, votes: {}, hostCid: CID,
   };
   S.hostCid = CID;
@@ -605,7 +533,7 @@ function startHost(code, name, restored) {
 
   function publicView() {
     return {
-      code: S.code, items: S.items, currentId: S.currentId, round: S.round, roundInItem: S.roundInItem,
+      code: S.code, round: S.round,
       revealed: S.revealed, hostVotes: S.hostVotes,
       people: Object.entries(S.people)
         .sort((a, b) => a[1].joinedAt - b[1].joinedAt)
@@ -630,9 +558,7 @@ function startHost(code, name, restored) {
     net.broadcast({ t: "state", s: v });
     renderRoom(v, { cid: CID, myVote: S.votes[CID] ?? null });
   }
-  function resetRound(sameItem) {
-    S.round++; S.roundInItem = sameItem ? S.roundInItem + 1 : 1; S.votes = {}; S.revealed = false;
-  }
+  function resetRound() { S.round++; S.votes = {}; S.revealed = false; }
 
   function onGuest(m) {
     if (!m || typeof m !== "object" || typeof m.cid !== "string" || m.cid.length > 40 || m.cid === S.hostCid) return;
@@ -672,34 +598,10 @@ function startHost(code, name, restored) {
       changed();
     },
     reveal() { if (!S.revealed) { S.revealed = true; changed(); } },
-    newRound() { resetRound(true); changed(); },
-    setCurrent(id) { if (!S.items.some(i => i.id === id) || id === S.currentId) return; S.currentId = id; resetRound(false); changed(); },
-    addItems(lines) {
-      const room = 300 - S.items.length; if (room <= 0) return toast("Maximal 300 Items");
-      lines.slice(0, room).forEach(title => S.items.push({ id: rid(8), title, estimate: null }));
-      if (!S.currentId) { const first = S.items.find(i => i.estimate == null) || S.items[0]; S.currentId = first.id; resetRound(false); }
-      changed();
-    },
-    removeItem(id) {
-      const idx = S.items.findIndex(i => i.id === id); if (idx < 0) return;
-      const it = S.items[idx];
-      if (!confirm(`«${it.title}» entfernen?`)) return;
-      S.items.splice(idx, 1);
-      if (S.currentId === id) { const nxt = S.items[idx] || S.items[idx - 1]; S.currentId = nxt ? nxt.id : null; resetRound(false); }
-      changed();
-    },
-    setEstimate(v) {
-      const idx = S.items.findIndex(i => i.id === S.currentId); if (idx < 0 || !(v in NUMERIC)) return;
-      S.items[idx].estimate = v;
-      const after = S.items.slice(idx + 1).concat(S.items.slice(0, idx));
-      const nxt = after.find(i => i.estimate == null);
-      if (nxt) { S.currentId = nxt.id; resetRound(false); toast(`${v} übernommen · weiter zum nächsten Item`); }
-      else toast(`${v} übernommen · alle Items geschätzt`);
-      changed();
-    },
+    newRound() { resetRound(); changed(); },
     removePerson(cid) { if (cid === S.hostCid) return; delete S.people[cid]; delete S.votes[cid]; changed(); },
     setHostVotes(on) { S.hostVotes = !!on; if (!on) delete S.votes[CID]; changed(); },
-    setRole() {}, nextItem() {},
+    setRole() {},
   };
 
   mountRoom(code, true, actions);
@@ -735,7 +637,7 @@ function startGuest(code, name, role) {
   }
 
   function onHost(m) {
-    if (!m || m.t !== "state" || !m.s || !Array.isArray(m.s.people) || !Array.isArray(m.s.items)) return;
+    if (!m || m.t !== "state" || !m.s || !Array.isArray(m.s.people)) return;
     const first = !view;
     view = m.s; lastState = now();
     if (view.round !== myRound) { myRound = view.round; myVote = null; }
@@ -764,14 +666,13 @@ function startGuest(code, name, role) {
       if (me.role === "observer") myVote = null;
       hello(true);
     },
-    reveal() {}, newRound() {}, setEstimate() {}, setCurrent() {}, addItems() {}, removeItem() {}, removePerson() {}, setHostVotes() {}, nextItem() {},
+    reveal() {}, newRound() {}, removePerson() {}, setHostVotes() {},
   };
 
   mountRoom(code, false, actions);
   $("#eyebrow").textContent = "Verbinde mit der Session…";
   $("#curTitle").textContent = "Einen Moment…"; $("#curTitle").className = "placeholder";
   $("#table").innerHTML = `<div class="empty">Warte auf die Moderation…</div>`;
-  $("#items").innerHTML = "";
 
   const net = guestTransport(code, onHost, st => { tStatus = st; if (st === "open") hello(true); updateConn(); });
   setInterval(() => { hello(!view || now() - lastState > 6000); updateConn(); }, 4000);
