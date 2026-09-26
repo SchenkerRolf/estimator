@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Schätzrunde</title>
+<meta name="description" content="Schlankes Schätz-Tool für Refinements und Sprint Plannings. Kein Login, nichts wird gespeichert.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='16' height='22' rx='3' fill='%235fb3a1'/%3E%3Crect x='12' y='3' width='16' height='22' rx='3' fill='%232f6f62'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f5f2; --surface:#ffffff; --surface-2:#f0eee9; --text:#1d1c1a; --muted:#6b6862;
+  --border:#e3e0d9; --accent:#2f6f62; --accent-2:#3f8a7a; --accent-ink:#ffffff; --accent-soft:#e2efeb;
+  --low:#2f62b8; --low-soft:#e3ebf8; --high:#b8501a; --high-soft:#fbe9dd;
+  --ok:#2e7d52; --warn:#9a6a12; --danger:#b3261e;
+  --shadow:0 1px 2px rgba(20,18,15,.05),0 6px 20px rgba(20,18,15,.05);
+  --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#141413; --surface:#1d1c1a; --surface-2:#262522; --text:#ecebe6; --muted:#a19d94;
+    --border:#34322e; --accent:#5fb3a1; --accent-2:#78c4b3; --accent-ink:#0e1a17; --accent-soft:#1f3530;
+    --low:#86abee; --low-soft:#1c2940; --high:#f09a64; --high-soft:#3b2619;
+    --ok:#6cc596; --warn:#e0b25a; --danger:#f08a82;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- Buttons & inputs ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:8px 14px;font-weight:500;transition:background .15s,border-color .15s,transform .05s}
+.btn:hover:not(:disabled){background:var(--surface-2)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover:not(:disabled){background:var(--accent-2);border-color:var(--accent-2)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover:not(:disabled){background:var(--surface-2)}
+.btn.small{padding:5px 10px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.45}
+.input{width:100%;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:10px 12px;outline:none;transition:border-color .15s}
+.input:focus{border-color:var(--accent)}
+textarea.input{resize:vertical;min-height:44px}
+label.field{display:block;font-size:13px;font-weight:500;color:var(--muted);margin:0 0 6px}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:8px;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+
+/* ---------- Entry screens ---------- */
+.entry{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
+.entry-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);padding:28px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:-.01em}
+.logo svg{flex:none}
+.entry h1{font-size:24px;letter-spacing:-.02em;margin:18px 0 4px}
+.entry p.lead{color:var(--muted);margin:0 0 22px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;margin:22px 0}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border)}
+.row{display:flex;gap:8px}
+.row>.input{flex:1}
+.err{color:var(--danger);font-size:13px;min-height:1em}
+
+/* ---------- Room ---------- */
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px max(16px,calc((100vw - 1180px)/2));background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+.session{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;letter-spacing:.08em;background:var(--surface-2);border-radius:8px;padding:4px 8px;font-size:13px}
+.conn{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);white-space:nowrap}
+.conn::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.conn.ok::before{background:var(--ok)}
+.conn.bad::before{background:var(--danger)}
+.layout{max-width:1180px;margin:0 auto;padding:20px 16px 40px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px;font-weight:600}
+.side{display:flex;flex-direction:column;gap:16px}
+.stage{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+.current .eyebrow{font-size:13px;color:var(--muted);font-weight:500}
+.current h1{font-size:22px;line-height:1.3;letter-spacing:-.015em;margin:4px 0 0;overflow-wrap:anywhere}
+.current h1.placeholder{color:var(--muted);font-weight:500}
+
+.table-wrap{padding:22px 18px}
+.progress{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.progress .count{font-weight:600}
+.bar{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-top:6px;width:180px;max-width:100%}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+.seats{display:flex;flex-wrap:wrap;gap:14px 10px;justify-content:center}
+.seat{width:86px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.seat.off{opacity:.4}
+.pcard{width:54px;height:76px;border-radius:10px;display:grid;place-items:center;font-weight:700;font-size:22px;border:2px dashed var(--border);background:transparent;color:var(--muted)}
+.pcard.down{border:2px solid var(--accent);background:repeating-linear-gradient(135deg,var(--accent) 0 6px,var(--accent-2) 6px 12px);box-shadow:var(--shadow)}
+.pcard.up{border:2px solid var(--border);background:var(--surface);color:var(--text);box-shadow:var(--shadow);animation:flip .35s ease-out}
+.pcard.none{font-size:15px}
+.seat.low .pcard.up{border-color:var(--low);background:var(--low-soft);color:var(--low)}
+.seat.high .pcard.up{border-color:var(--high);background:var(--high-soft);color:var(--high)}
+@keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
+.seat .nm{font-size:13px;font-weight:500;max-width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat .tag{font-size:11px;font-weight:600;border-radius:99px;padding:1px 7px;line-height:1.5}
+.seat.low .tag{background:var(--low-soft);color:var(--low)}
+.seat.high .tag{background:var(--high-soft);color:var(--high)}
+.seat .sub{font-size:11px;color:var(--muted)}
+.observers{margin-top:18px;font-size:13px;color:var(--muted);text-align:center}
+.empty{color:var(--muted);text-align:center;padding:10px 0}
+
+.result{display:flex;flex-direction:column;gap:12px}
+.result .big{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.spread{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.spread{grid-template-columns:1fr}}
+.spread>div{border-radius:12px;padding:12px 14px}
+.spread .lo{background:var(--low-soft);color:var(--low)}
+.spread .hi{background:var(--high-soft);color:var(--high)}
+.spread .k{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;opacity:.85}
+.spread .v{font-size:20px;font-weight:700}
+.spread .who{font-size:13px;font-weight:500;overflow-wrap:anywhere}
+.hint{color:var(--muted);font-size:14px;margin:0}
+.dist{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:13px;background:var(--surface-2);border-radius:99px;padding:3px 10px}
+.chip b{font-weight:700}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.actions .lbl{font-size:13px;color:var(--muted);margin-right:2px}
+.est{min-width:44px}
+.est.suggest{border-color:var(--accent);color:var(--accent);font-weight:700}
+
+.deck-wrap{position:sticky;bottom:0;z-index:4;padding:12px 0 calc(12px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent)}
+.deck{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.dcard{width:58px;height:82px;border-radius:12px;border:2px solid var(--border);background:var(--surface);font-weight:700;font-size:22px;box-shadow:var(--shadow);transition:transform .15s,border-color .15s,background .15s}
+.dcard:hover:not(:disabled){transform:translateY(-4px);border-color:var(--accent)}
+.dcard[aria-pressed="true"]{transform:translateY(-10px);background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.dcard:disabled{opacity:.5}
+@media (max-width:420px){.dcard{width:44px;height:64px;font-size:18px;border-radius:10px}.deck{gap:6px}}
+.deck-note{text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
+
+.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:48vh;overflow:auto}
+.items li{display:flex;align-items:center;gap:8px;border-radius:10px;padding:2px 4px 2px 2px}
+.items li.cur{background:var(--accent-soft)}
+.items .sel{flex:1;min-width:0;text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:8px;display:flex;gap:8px;align-items:baseline}
+.items .sel:hover:not(:disabled){background:var(--surface-2)}
+.items li.cur .sel:hover{background:transparent}
+.items .sel:disabled{cursor:default;opacity:1}
+.items .n{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;flex:none;width:18px}
+.items .t{overflow-wrap:anywhere}
+.items li.done .t{color:var(--muted)}
+.badge{flex:none;font-size:12px;font-weight:700;background:var(--surface-2);border-radius:99px;padding:2px 9px}
+.items li.cur .badge{background:var(--surface)}
+.x{flex:none;border:0;background:transparent;color:var(--muted);width:28px;height:28px;border-radius:8px;font-size:16px;line-height:1}
+.x:hover{background:var(--surface-2);color:var(--danger)}
+.add{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.sum{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.sum b{color:var(--text)}
+.me{display:flex;flex-direction:column;gap:12px}
+.me .who{font-weight:600}
+.check{display:flex;align-items:center;gap:10px;font-weight:500}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:.2s;z-index:20}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.banner{background:var(--high-soft);color:var(--high);border-radius:12px;padding:10px 14px;font-size:14px;font-weight:500}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script>
+(() => {
+"use strict";
+
+/* ================= Konfiguration ================= */
+const SCALE   = ["0.5", "1", "2", "3", "5", "?", "☕"];
+const NUMERIC = { "0.5": 0.5, "1": 1, "2": 2, "3": 3, "5": 5 };
+const PREFIX  = "schaetzrunde-v1-";      // Präfix für Peer-IDs / Kanalnamen
+const ONLINE_MS = 12000;                  // ohne Lebenszeichen gilt jemand als offline
+const params = new URLSearchParams(location.search);
+const USE_LOCAL = params.get("transport") === "local"; // Testmodus: Tabs im selben Browser
+// Optional eigener PeerJS-Server: ?peerhost=example.com&peerport=443&peerpath=/
+const KEEP = {};
+["transport", "peerhost", "peerport", "peerpath"].forEach(k => { if (params.get(k)) KEEP[k] = params.get(k); });
+function peerOpts() {
+  const o = { debug: 0 };
+  if (KEEP.peerhost) {
+    o.host = KEEP.peerhost; o.path = KEEP.peerpath || "/";
+    o.port = Number(KEEP.peerport) || (location.protocol === "https:" ? 443 : 80);
+    o.secure = o.port === 443;
+  }
+  return o;
+}
+const linkFor = code => "?" + new URLSearchParams(code ? { s: code, ...KEEP } : KEEP);
+
+/* ================= Helpers ================= */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const clean = (s, max) => String(s ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, max);
+const now = () => Date.now();
+const rid = (n = 12) => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => (b % 36).toString(36)).join("");
+function genCode() {
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from(crypto.getRandomValues(new Uint8Array(6)), b => A[b % A.length]).join("");
+}
+function fmt(n) { return (Math.round(n * 10) / 10).toString(); }
+const store = {
+  get(k, local) { try { const s = local ? localStorage : sessionStorage; return JSON.parse(s.getItem(k)); } catch { return null; } },
+  set(k, v, local) { try { const s = local ? localStorage : sessionStorage; s.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k, local) { try { const s = local ? localStorage : sessionStorage; s.removeItem(k); } catch {} },
+};
+let toastT;
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1800);
+}
+const CID = store.get("sr-cid") || rid(); store.set("sr-cid", CID); // pro Tab eine Person
+const LOGO = `<svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="16" height="22" rx="3" fill="var(--accent-2)"/><rect x="12" y="3" width="16" height="22" rx="3" fill="var(--accent)"/></svg>`;
+
+/* ================= Transport =================
+   Moderation (Host) hält den Zustand. Gäste senden Aktionen, Host sendet den
+   (bereinigten) Zustand an alle. Zwei Varianten: PeerJS/WebRTC (Standard)
+   oder BroadcastChannel (?transport=local, zum Testen in mehreren Tabs). */
+const NET_ERRORS = ["network", "server-error", "socket-error", "socket-closed", "disconnected"];
+
+function hostTransport(code, onMsg, onStatus) {
+  if (USE_LOCAL) {
+    const bc = new BroadcastChannel(PREFIX + code);
+    bc.onmessage = e => { const d = e.data; if (d && d.dir === "g2h") onMsg(d.msg); };
+    setTimeout(() => onStatus("online"), 0);
+    return { broadcast(msg) { bc.postMessage({ dir: "h2g", msg }); } };
+  }
+  if (typeof Peer === "undefined") { setTimeout(() => onStatus("nolib"), 0); return { broadcast() {} }; }
+  const conns = new Set();
+  let peer, retry;
+  function start() {
+    onStatus("connecting");
+    const p = new Peer(PREFIX + code.toLowerCase(), peerOpts());
+    peer = p;
+    p.on("open", () => onStatus("online"));
+    p.on("connection", conn => {
+      conn.on("open", () => conns.add(conn));
+      conn.on("data", d => onMsg(d));
+      conn.on("close", () => conns.delete(conn));
+      conn.on("error", () => conns.delete(conn));
+    });
+    p.on("disconnected", () => {
+      if (p.destroyed || peer !== p) return;
+      onStatus("connecting");
+      setTimeout(() => { if (!p.destroyed && p.disconnected) try { p.reconnect(); } catch {} }, 1500);
+    });
+    p.on("error", err => {
+      if (peer !== p) return;
+      if (err.type === "unavailable-id" || NET_ERRORS.includes(err.type)) {
+        onStatus(err.type === "unavailable-id" ? "claiming" : "connecting");
+        if (err.type === "unavailable-id") { try { p.destroy(); } catch {} clearTimeout(retry); retry = setTimeout(start, 3000); }
+      }
+    });
+  }
+  start();
+  return { broadcast(msg) { for (const c of conns) if (c.open) try { c.send(msg); } catch {} } };
+}
+
+function guestTransport(code, onMsg, onStatus) {
+  if (USE_LOCAL) {
+    const bc = new BroadcastChannel(PREFIX + code);
+    bc.onmessage = e => { const d = e.data; if (d && d.dir === "h2g") onMsg(d.msg); };
+    setTimeout(() => onStatus("open"), 0);
+    return { send(msg) { bc.postMessage({ dir: "g2h", msg }); } };
+  }
+  if (typeof Peer === "undefined") { setTimeout(() => onStatus("nolib"), 0); return { send() {} }; }
+  const hostId = PREFIX + code.toLowerCase();
+  let peer, conn, timer, openTimer;
+  const schedule = (ms = 2500) => { clearTimeout(timer); timer = setTimeout(connect, ms); };
+  function newPeer() {
+    onStatus("connecting");
+    const p = new Peer(peerOpts());
+    peer = p;
+    p.on("open", () => connect());
+    p.on("error", err => {
+      if (peer !== p) return;
+      if (err.type === "peer-unavailable") { onStatus("nohost"); schedule(3000); }
+      else if (NET_ERRORS.includes(err.type)) { try { p.destroy(); } catch {} schedule(); }
+    });
+    p.on("disconnected", () => { if (!p.destroyed) setTimeout(() => { if (!p.destroyed && p.disconnected) try { p.reconnect(); } catch {} }, 1500); });
+  }
+  function connect() {
+    if (!peer || peer.destroyed) return newPeer();
+    if (peer.disconnected) { try { peer.reconnect(); } catch {} return schedule(); }
+    if (conn && conn.open) return;
+    const c = peer.connect(hostId, { reliable: true, serialization: "json" });
+    conn = c;
+    clearTimeout(openTimer);
+    openTimer = setTimeout(() => { if (conn === c && !c.open) { try { c.close(); } catch {} schedule(500); } }, 10000);
+    c.on("open", () => { clearTimeout(openTimer); onStatus("open"); });
+    c.on("data", d => onMsg(d));
+    c.on("close", () => { if (conn === c) { onStatus("connecting"); schedule(); } });
+    c.on("error", () => { if (conn === c) schedule(); });
+  }
+  newPeer();
+  return { send(msg) { if (conn && conn.open) try { conn.send(msg); } catch {} } };
+}
+
+/* ================= Analyse der Stimmen ================= */
+function analyze(people) {
+  const voted = people.filter(p => p.vote != null);
+  const nums = voted.filter(p => p.vote in NUMERIC);
+  const special = {};
+  voted.forEach(p => { if (!(p.vote in NUMERIC)) special[p.vote] = (special[p.vote] || 0) + 1; });
+  const counts = {};
+  voted.forEach(p => { counts[p.vote] = (counts[p.vote] || 0) + 1; });
+  if (!nums.length) return { voted, nums, special, counts };
+  const vals = nums.map(p => NUMERIC[p.vote]);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  // Vorschlag: häufigster Zahlenwert, bei Gleichstand der höhere
+  let suggest = null, best = -1;
+  Object.keys(NUMERIC).forEach(k => { const c = counts[k] || 0; if (c > 0 && c >= best) { best = c; suggest = k; } });
+  return {
+    voted, nums, special, counts, min, max, suggest,
+    consensus: min === max,
+    lows: nums.filter(p => NUMERIC[p.vote] === min),
+    highs: nums.filter(p => NUMERIC[p.vote] === max),
+  };
+}
+
+/* ================= Startbildschirme ================= */
+const app = $("#app");
+const savedName = () => store.get("sr-name", true) || "";
+
+function showStart(prefillErr) {
+  app.innerHTML = `
+  <div class="entry"><div class="entry-card">
+    <div class="logo">${LOGO} Schätzrunde</div>
+    <h1>Gemeinsam schätzen</h1>
+    <p class="lead">Kein Login, nichts wird gespeichert. Starte eine Session und teile den Link mit deinem Team.</p>
+    <form id="fStart" class="stack">
+      <div><label class="field" for="nStart">Dein Name</label>
+      <input id="nStart" class="input" maxlength="24" autocomplete="nickname" required value="${esc(savedName())}"></div>
+      <button class="btn primary" type="submit">Neue Session starten</button>
+    </form>
+    <div class="divider">oder beitreten</div>
+    <form id="fJoin" class="stack">
+      <div><label class="field" for="cJoin">Session-Code</label>
+      <div class="row"><input id="cJoin" class="input" maxlength="6" placeholder="z. B. K7M2QX" autocapitalize="characters" autocomplete="off" required style="text-transform:uppercase;letter-spacing:.08em">
+      <button class="btn" type="submit">Weiter</button></div></div>
+      <div class="err" id="eJoin">${esc(prefillErr || "")}</div>
+    </form>
+  </div></div>`;
+  $("#fStart").onsubmit = e => {
+    e.preventDefault();
+    const name = clean($("#nStart").value, 24); if (!name) return;
+    store.set("sr-name", name, true);
+    const code = genCode();
+    history.replaceState(null, "", linkFor(code));
+    startHost(code, name, null);
+  };
+  $("#fJoin").onsubmit = e => {
+    e.preventDefault();
+    const code = clean($("#cJoin").value, 6).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (code.length !== 6) { $("#eJoin").textContent = "Der Code hat 6 Zeichen."; return; }
+    history.replaceState(null, "", linkFor(code));
+    showJoin(code);
+  };
+}
+
+function showJoin(code) {
+  let role = store.get("sr-role", true) === "observer" ? "observer" : "voter";
+  app.innerHTML = `
+  <div class="entry"><div class="entry-card">
+    <div class="logo">${LOGO} Schätzrunde</div>
+    <h1>Session <span class="code">${esc(code)}</span></h1>
+    <p class="lead">Gib deinen Namen ein, dann bist du dabei.</p>
+    <form id="fName" class="stack">
+      <div><label class="field" for="nJoin">Dein Name</label>
+      <input id="nJoin" class="input" maxlength="24" autocomplete="nickname" required value="${esc(savedName())}"></div>
+      <div><span class="field">Ich möchte</span>
+      <div class="seg" role="group" aria-label="Rolle">
+        <button type="button" data-role="voter">Mitschätzen</button>
+        <button type="button" data-role="observer">Nur zuschauen</button>
+      </div></div>
+      <button class="btn primary" type="submit">Beitreten</button>
+      <a class="small muted" href="${esc(location.pathname + (Object.keys(KEEP).length ? linkFor() : ""))}">Andere Session / neue starten</a>
+    </form>
+  </div></div>`;
+  const seg = () => app.querySelectorAll("[data-role]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.role === role)));
+  app.querySelectorAll("[data-role]").forEach(b => b.onclick = () => { role = b.dataset.role; seg(); });
+  seg();
+  $("#nJoin").focus();
+  $("#fName").onsubmit = e => {
+    e.preventDefault();
+    const name = clean($("#nJoin").value, 24); if (!name) return;
+    store.set("sr-name", name, true); store.set("sr-role", role, true);
+    store.set("sr-guest-" + code, { name, role });
+    startGuest(code, name, role);
+  };
+}
+
+/* ================= Raum (gemeinsame Oberfläche) ================= */
+let ui = null; // { isHost, actions }
+
+function mountRoom(code, isHost, actions) {
+  ui = { isHost, actions, code };
+  app.innerHTML = `
+  <header class="top">
+    <div class="logo">${LOGO}<span>Schätzrunde</span></div>
+    <div class="session">
+      <span class="conn" id="conn">Verbinde…</span>
+      <span class="code" title="Session-Code">${esc(code)}</span>
+      <button class="btn small" id="copy">Link kopieren</button>
+    </div>
+  </header>
+  <main class="layout">
+    <section class="stage">
+      <div id="banner"></div>
+      <div class="panel current"><div class="eyebrow" id="eyebrow"></div><h1 id="curTitle"></h1></div>
+      <div class="panel table-wrap" id="table"></div>
+      <div id="result"></div>
+      <div class="deck-wrap" id="deckWrap"></div>
+    </section>
+    <aside class="side">
+      <section class="panel">
+        <h2>Backlog</h2>
+        ${isHost ? `<div class="add">
+          <textarea id="newItems" class="input" rows="2" maxlength="4000" placeholder="Item eintippen · mehrere: eins pro Zeile"></textarea>
+          <button class="btn" id="addBtn">Hinzufügen</button>
+        </div>` : ""}
+        <ol class="items" id="items"></ol>
+        <div id="sum"></div>
+      </section>
+      <section class="panel"><h2>Du</h2><div class="me" id="me"></div></section>
+    </aside>
+  </main>`;
+
+  $("#copy").onclick = async () => {
+    const url = location.origin + location.pathname + linkFor(code);
+    try { await navigator.clipboard.writeText(url); toast("Link kopiert"); }
+    catch { prompt("Link zum Teilen:", url); }
+  };
+  if (isHost) {
+    const add = () => {
+      const ta = $("#newItems");
+      const lines = ta.value.split(/\r?\n/).map(l => clean(l, 200)).filter(Boolean);
+      if (!lines.length) return;
+      actions.addItems(lines); ta.value = ""; ta.focus();
+    };
+    $("#addBtn").onclick = add;
+    $("#newItems").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); add(); } });
+  }
+  // Eine Ereignisbehandlung für alle dynamischen Knöpfe
+  app.addEventListener("click", e => {
+    const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
+    const a = b.dataset.act, v = b.dataset.v;
+    if (a === "vote") actions.vote(v);
+    else if (a === "reveal") actions.reveal();
+    else if (a === "round") actions.newRound();
+    else if (a === "estimate") actions.setEstimate(v);
+    else if (a === "select") actions.setCurrent(v);
+    else if (a === "remove") actions.removeItem(v);
+    else if (a === "kick") actions.removePerson(v);
+    else if (a === "role") actions.setRole(v);
+    else if (a === "next") actions.nextItem();
+  });
+  app.addEventListener("change", e => {
+    if (e.target.id === "hostVotes") actions.setHostVotes(e.target.checked);
+  });
+}
+
+function setConn(text, cls) {
+  const c = $("#conn"); if (!c) return;
+  c.textContent = text; c.className = "conn " + (cls || "");
+}
+
+/* view: bereinigter Zustand vom Host; me: { cid, myVote } */
+function renderRoom(view, me) {
+  if (!ui) return;
+  const isHost = ui.isHost;
+  const people = view.people;
+  const self = people.find(p => p.cid === me.cid);
+  const eligible = p => p.role === "voter" || (p.role === "host" && view.hostVotes);
+  const voters = people.filter(eligible);
+  const onlineVoters = voters.filter(p => p.online);
+  const votedCount = onlineVoters.filter(p => p.voted).length;
+  const observers = people.filter(p => !eligible(p));
+  const cur = view.items.find(i => i.id === view.currentId);
+  const curIdx = cur ? view.items.indexOf(cur) : -1;
+  const iCanVote = self && eligible(self);
+  const A = view.revealed ? analyze(people) : null;
+
+  /* Aktuelles Item */
+  $("#eyebrow").textContent = cur ? `Item ${curIdx + 1} von ${view.items.length} · Runde ${view.roundInItem}` : `Runde ${view.roundInItem}`;
+  const h = $("#curTitle");
+  if (cur) { h.textContent = cur.title; h.className = ""; }
+  else { h.textContent = view.items.length ? "Kein Item ausgewählt" : (isHost ? "Freie Runde: füge rechts Items hinzu" : "Freie Runde"); h.className = "placeholder"; }
+
+  /* Tisch */
+  const spread = A && A.nums.length && !A.consensus;
+  const lowSet = new Set(spread ? A.lows.map(p => p.cid) : []);
+  const highSet = new Set(spread ? A.highs.map(p => p.cid) : []);
+  const seat = p => {
+    const cls = ["seat", p.online ? "" : "off", lowSet.has(p.cid) ? "low" : "", highSet.has(p.cid) ? "high" : ""].join(" ");
+    let card;
+    if (view.revealed) card = p.vote != null ? `<div class="pcard up">${esc(p.vote)}</div>` : `<div class="pcard none" title="Nicht gewählt">–</div>`;
+    else card = p.voted ? `<div class="pcard down" title="Hat gewählt"></div>` : `<div class="pcard" title="Wählt noch"></div>`;
+    const tag = lowSet.has(p.cid) ? `<span class="tag">tiefster</span>` : highSet.has(p.cid) ? `<span class="tag">höchster</span>` : "";
+    const sub = !p.online ? `<span class="sub">offline${isHost && p.role !== "host" ? ` · <button class="btn ghost small" style="padding:0 4px" data-act="kick" data-v="${esc(p.cid)}">entfernen</button>` : ""}</span>`
+      : p.role === "host" ? `<span class="sub">Moderation</span>` : "";
+    return `<div class="${cls}">${card}<span class="nm" title="${esc(p.name)}">${esc(p.name)}${p.cid === me.cid ? " (du)" : ""}</span>${tag}${sub}</div>`;
+  };
+  const pct = onlineVoters.length ? Math.round(votedCount / onlineVoters.length * 100) : 0;
+  const progress = view.revealed
+    ? `<div><div class="count">Aufgedeckt</div><div class="muted small">${A.voted.length} Schätzung${A.voted.length === 1 ? "" : "en"}</div></div>`
+    : `<div><div class="count">${votedCount} von ${onlineVoters.length} haben gewählt</div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+  const hostBtns = isHost ? (view.revealed
+      ? `<button class="btn" data-act="round">Neue Runde</button>`
+      : `<button class="btn primary" data-act="reveal" ${votedCount ? "" : "disabled"}>Jetzt aufdecken</button>`) : "";
+  $("#table").innerHTML = `
+    <div class="progress">${progress}<div class="actions">${hostBtns}</div></div>
+    ${voters.length ? `<div class="seats">${voters.map(seat).join("")}</div>` : `<div class="empty">Noch niemand schätzt mit. Teile den Link!</div>`}
+    ${observers.length ? `<div class="observers">Zuschauend: ${observers.map(p => esc(p.name) + (p.cid === me.cid ? " (du)" : "") + (p.online ? "" : " (offline)")).join(", ")}</div>` : ""}`;
+
+  /* Ergebnis */
+  let res = "";
+  if (view.revealed) {
+    const specials = Object.entries(A.special).map(([k, c]) => `<span class="chip"><b>${c}×</b> ${esc(k)}</span>`).join("");
+    const dist = SCALE.filter(k => A.counts[k]).map(k => `<span class="chip"><b>${esc(k)}</b> · ${A.counts[k]}×</span>`).join("");
+    if (!A.voted.length) {
+      res = `<p class="hint">Niemand hat gewählt.</p>`;
+    } else if (!A.nums.length) {
+      res = `<div class="big">Keine Zahlen-Schätzung</div><div class="dist">${specials}</div><p class="hint">Klärt die offenen Fragen und startet eine neue Runde.</p>`;
+    } else if (A.consensus) {
+      res = `<div class="big">Einig: ${esc(A.nums[0].vote)} 🎉</div>${specials ? `<div class="dist">${specials}</div>` : ""}`;
+    } else {
+      const names = arr => arr.map(p => esc(p.name)).join(", ");
+      res = `<div class="spread">
+          <div class="lo"><div class="k">Tiefster Wert</div><div class="v">${fmt(A.min)}</div><div class="who">${names(A.lows)}</div></div>
+          <div class="hi"><div class="k">Höchster Wert</div><div class="v">${fmt(A.max)}</div><div class="who">${names(A.highs)}</div></div>
+        </div>
+        <p class="hint">Tiefster und höchster Wert erklären kurz ihre Sicht, danach stimmt ihr neu ab.</p>
+        <div class="dist">${dist}</div>`;
+    }
+    if (isHost && cur) {
+      res += `<div class="actions"><span class="lbl">Wert fürs Item übernehmen:</span>${Object.keys(NUMERIC).map(k =>
+        `<button class="btn small est ${A.suggest === k ? "suggest" : ""}" data-act="estimate" data-v="${k}" ${A.suggest === k ? 'title="Häufigster Wert"' : ""}>${k}</button>`).join("")}</div>`;
+    }
+    res = `<div class="panel result">${res}</div>`;
+  } else if (isHost && cur && cur.estimate != null) {
+    res = `<div class="panel result"><p class="hint">Dieses Item ist bereits mit <b>${esc(cur.estimate)}</b> geschätzt. Neue Stimmen überschreiben den Wert erst, wenn du einen übernimmst.</p></div>`;
+  }
+  $("#result").innerHTML = res;
+
+  /* Karten-Deck */
+  const dw = $("#deckWrap");
+  if (iCanVote) {
+    dw.style.display = "";
+    dw.innerHTML = `<div class="deck" role="group" aria-label="Deine Schätzung">${SCALE.map(v =>
+      `<button class="dcard" data-act="vote" data-v="${esc(v)}" aria-pressed="${me.myVote === v}" ${view.revealed ? "disabled" : ""} title="${v === "?" ? "Unklar" : v === "☕" ? "Pause" : v}">${esc(v)}</button>`).join("")}</div>
+      <div class="deck-note">${view.revealed ? "Aufgedeckt. Warte auf die nächste Runde." : me.myVote != null ? "Gewählt. Nochmals tippen zum Zurücknehmen." : "Wähle deine Karte."}</div>`;
+  } else { dw.style.display = "none"; dw.innerHTML = ""; }
+
+  /* Backlog */
+  const items = view.items;
+  $("#items").innerHTML = items.length ? items.map((it, i) => `
+    <li class="${it.id === view.currentId ? "cur" : ""} ${it.estimate != null ? "done" : ""}">
+      <button class="sel" data-act="select" data-v="${esc(it.id)}" ${isHost ? "" : "disabled"} ${isHost ? 'title="Als aktuelles Item wählen"' : ""}>
+        <span class="n">${i + 1}</span><span class="t">${esc(it.title)}</span></button>
+      ${it.estimate != null ? `<span class="badge">${esc(it.estimate)}</span>` : ""}
+      ${isHost ? `<button class="x" data-act="remove" data-v="${esc(it.id)}" title="Entfernen" aria-label="Item entfernen">×</button>` : ""}
+    </li>`).join("") : `<li class="muted small" style="padding:4px 2px">${isHost ? "Noch keine Items." : "Die Moderation hat noch keine Items erfasst."}</li>`;
+  const done = items.filter(i => i.estimate != null);
+  const total = done.reduce((s, i) => s + (NUMERIC[i.estimate] || 0), 0);
+  $("#sum").innerHTML = items.length ? `<div class="sum"><span>${done.length} von ${items.length} geschätzt</span><span>Summe <b>${fmt(total)}</b></span></div>` : "";
+
+  /* Du */
+  let meHtml = `<div class="who">${esc(self ? self.name : "…")}</div>`;
+  if (isHost) {
+    meHtml += `<label class="check"><input type="checkbox" id="hostVotes" ${view.hostVotes ? "checked" : ""}> Ich schätze mit</label>
+      <p class="small muted" style="margin:0">Du moderierst. Schliesst du diesen Tab, endet die Session für alle. Ein Neuladen ist ok.</p>`;
+  } else if (self) {
+    meHtml += `<div class="seg" role="group" aria-label="Rolle">
+      <button data-act="role" data-v="voter" aria-pressed="${self.role === "voter"}">Mitschätzen</button>
+      <button data-act="role" data-v="observer" aria-pressed="${self.role === "observer"}">Nur zuschauen</button></div>`;
+  }
+  $("#me").innerHTML = meHtml;
+}
+
+/* ================= Host ================= */
+function startHost(code, name, restored) {
+  const key = "sr-host-" + code;
+  const S = restored || {
+    code, items: [], currentId: null, round: 1, roundInItem: 1, revealed: false, hostVotes: true,
+    people: {}, votes: {}, hostCid: CID,
+  };
+  S.hostCid = CID;
+  const t0 = now();
+  // Nach einem Neuladen allen kurz Zeit geben, sich wieder zu melden
+  Object.values(S.people).forEach(p => { p.lastSeen = t0; });
+  S.people[CID] = { ...(S.people[CID] || { joinedAt: t0 }), name, role: "host", lastSeen: t0 };
+
+  const isOnline = (cid, p) => cid === S.hostCid || now() - p.lastSeen < ONLINE_MS;
+  const eligible = (cid, p) => p.role === "voter" || (p.role === "host" && S.hostVotes);
+  let lastOnlineSig = "";
+
+  function publicView() {
+    return {
+      code: S.code, items: S.items, currentId: S.currentId, round: S.round, roundInItem: S.roundInItem,
+      revealed: S.revealed, hostVotes: S.hostVotes,
+      people: Object.entries(S.people)
+        .sort((a, b) => a[1].joinedAt - b[1].joinedAt)
+        .map(([cid, p]) => ({
+          cid, name: p.name, role: p.role, online: isOnline(cid, p),
+          voted: S.votes[cid] != null,
+          vote: S.revealed ? (S.votes[cid] ?? null) : null, // vor dem Aufdecken nie mitsenden
+        })),
+    };
+  }
+  function onlineSig() { return Object.entries(S.people).map(([c, p]) => c + (isOnline(c, p) ? 1 : 0) + p.role).join("|"); }
+  function autoReveal() {
+    if (S.revealed) return;
+    const el = Object.entries(S.people).filter(([c, p]) => isOnline(c, p) && eligible(c, p));
+    if (el.length && el.every(([c]) => S.votes[c] != null)) S.revealed = true;
+  }
+  function changed() {
+    autoReveal();
+    lastOnlineSig = onlineSig();
+    store.set(key, S);
+    const v = publicView();
+    net.broadcast({ t: "state", s: v });
+    renderRoom(v, { cid: CID, myVote: S.votes[CID] ?? null });
+  }
+  function resetRound(sameItem) {
+    S.round++; S.roundInItem = sameItem ? S.roundInItem + 1 : 1; S.votes = {}; S.revealed = false;
+  }
+
+  function onGuest(m) {
+    if (!m || typeof m !== "object" || typeof m.cid !== "string" || m.cid.length > 40 || m.cid === S.hostCid) return;
+    const t = now();
+    if (m.t === "hello") {
+      const nm = clean(m.name, 24) || "Gast";
+      const role = m.role === "observer" ? "observer" : "voter";
+      let p = S.people[m.cid], dirty = false;
+      if (!p) {
+        if (Object.keys(S.people).length >= 60) return;
+        p = S.people[m.cid] = { name: nm, role, joinedAt: t, lastSeen: t }; dirty = true;
+      } else {
+        if (!isOnline(m.cid, p)) dirty = true;
+        if (p.name !== nm) { p.name = nm; dirty = true; }
+        if (p.role !== role) { p.role = role; if (role === "observer") delete S.votes[m.cid]; dirty = true; }
+        p.lastSeen = t;
+      }
+      if (dirty) changed();
+      else if (m.need) net.broadcast({ t: "state", s: publicView() });
+    } else if (m.t === "vote") {
+      const p = S.people[m.cid];
+      if (!p || p.role !== "voter" || S.revealed || m.round !== S.round) return;
+      p.lastSeen = t;
+      if (m.value === null) { if (S.votes[m.cid] == null) return; delete S.votes[m.cid]; }
+      else if (SCALE.includes(m.value)) { if (S.votes[m.cid] === m.value) return; S.votes[m.cid] = m.value; }
+      else return;
+      changed();
+    } else if (m.t === "bye") {
+      const p = S.people[m.cid]; if (p) { p.lastSeen = 0; changed(); }
+    }
+  }
+
+  const actions = {
+    vote(v) {
+      if (S.revealed || !S.hostVotes) return;
+      if (S.votes[CID] === v) delete S.votes[CID]; else S.votes[CID] = v;
+      changed();
+    },
+    reveal() { if (!S.revealed) { S.revealed = true; changed(); } },
+    newRound() { resetRound(true); changed(); },
+    setCurrent(id) { if (!S.items.some(i => i.id === id) || id === S.currentId) return; S.currentId = id; resetRound(false); changed(); },
+    addItems(lines) {
+      const room = 300 - S.items.length; if (room <= 0) return toast("Maximal 300 Items");
+      lines.slice(0, room).forEach(title => S.items.push({ id: rid(8), title, estimate: null }));
+      if (!S.currentId) { const first = S.items.find(i => i.estimate == null) || S.items[0]; S.currentId = first.id; resetRound(false); }
+      changed();
+    },
+    removeItem(id) {
+      const idx = S.items.findIndex(i => i.id === id); if (idx < 0) return;
+      const it = S.items[idx];
+      if (!confirm(`«${it.title}» entfernen?`)) return;
+      S.items.splice(idx, 1);
+      if (S.currentId === id) { const nxt = S.items[idx] || S.items[idx - 1]; S.currentId = nxt ? nxt.id : null; resetRound(false); }
+      changed();
+    },
+    setEstimate(v) {
+      const idx = S.items.findIndex(i => i.id === S.currentId); if (idx < 0 || !(v in NUMERIC)) return;
+      S.items[idx].estimate = v;
+      const after = S.items.slice(idx + 1).concat(S.items.slice(0, idx));
+      const nxt = after.find(i => i.estimate == null);
+      if (nxt) { S.currentId = nxt.id; resetRound(false); toast(`${v} übernommen · weiter zum nächsten Item`); }
+      else toast(`${v} übernommen · alle Items geschätzt`);
+      changed();
+    },
+    removePerson(cid) { if (cid === S.hostCid) return; delete S.people[cid]; delete S.votes[cid]; changed(); },
+    setHostVotes(on) { S.hostVotes = !!on; if (!on) delete S.votes[CID]; changed(); },
+    setRole() {}, nextItem() {},
+  };
+
+  mountRoom(code, true, actions);
+  const net = hostTransport(code, onGuest, st => {
+    if (st === "online") setConn("Online", "ok");
+    else if (st === "claiming") setConn("Session wird übernommen…", "");
+    else if (st === "nolib") setConn("Netzwerk-Bibliothek fehlt", "bad");
+    else setConn("Verbinde…", "");
+  });
+  changed();
+  // Regelmässig: Online-Status prüfen und Zustand senden (für Nachzügler)
+  setInterval(() => { if (onlineSig() !== lastOnlineSig) changed(); }, 2000);
+  setInterval(() => net.broadcast({ t: "state", s: publicView() }), 5000);
+}
+
+/* ================= Gast ================= */
+function startGuest(code, name, role) {
+  let view = null, myVote = null, myRound = null, lastState = 0, tStatus = "connecting";
+  const me = { name, role };
+
+  const hello = need => net.send({ t: "hello", cid: CID, name: me.name, role: me.role, need: !!need });
+  function render() { if (view) renderRoom(view, { cid: CID, myVote }); }
+  function updateConn() {
+    const fresh = now() - lastState < ONLINE_MS;
+    if (tStatus === "nolib") setConn("Netzwerk-Bibliothek fehlt", "bad");
+    else if (tStatus === "nohost") setConn("Moderation nicht erreichbar", "bad");
+    else if (tStatus === "open" && fresh) setConn("Verbunden", "ok");
+    else if (tStatus === "open") setConn("Warte auf Moderation…", "");
+    else setConn("Verbinde…", "");
+    const b = $("#banner");
+    if (b) b.innerHTML = (tStatus === "nohost" && !fresh)
+      ? `<div class="banner">Die Moderation ist gerade nicht erreichbar. Ist der Code richtig und die Session noch offen? Ich versuche es weiter…</div>` : "";
+  }
+
+  function onHost(m) {
+    if (!m || m.t !== "state" || !m.s || !Array.isArray(m.s.people) || !Array.isArray(m.s.items)) return;
+    const first = !view;
+    view = m.s; lastState = now();
+    if (view.round !== myRound) { myRound = view.round; myVote = null; }
+    const self = view.people.find(p => p.cid === CID);
+    if (!self) { hello(true); }
+    else {
+      if (view.revealed) myVote = self.vote ?? null;
+      else if (myVote != null && !self.voted && self.role === "voter") net.send({ t: "vote", cid: CID, round: view.round, value: myVote });
+      else if (myVote == null && self.voted) {/* eigene Stimme aus früherer Sitzung – nicht bekannt */}
+    }
+    if (first) updateConn();
+    updateConn();
+    render();
+  }
+
+  const actions = {
+    vote(v) {
+      if (!view || view.revealed) return;
+      myVote = myVote === v ? null : v;
+      net.send({ t: "vote", cid: CID, round: view.round, value: myVote });
+      render();
+    },
+    setRole(r) {
+      me.role = r === "observer" ? "observer" : "voter";
+      store.set("sr-role", me.role, true); store.set("sr-guest-" + code, { name: me.name, role: me.role });
+      if (me.role === "observer") myVote = null;
+      hello(true);
+    },
+    reveal() {}, newRound() {}, setEstimate() {}, setCurrent() {}, addItems() {}, removeItem() {}, removePerson() {}, setHostVotes() {}, nextItem() {},
+  };
+
+  mountRoom(code, false, actions);
+  $("#eyebrow").textContent = "Verbinde mit der Session…";
+  $("#curTitle").textContent = "Einen Moment…"; $("#curTitle").className = "placeholder";
+  $("#table").innerHTML = `<div class="empty">Warte auf die Moderation…</div>`;
+  $("#items").innerHTML = "";
+
+  const net = guestTransport(code, onHost, st => { tStatus = st; if (st === "open") hello(true); updateConn(); });
+  setInterval(() => { hello(!view || now() - lastState > 6000); updateConn(); }, 4000);
+  addEventListener("pagehide", () => net.send({ t: "bye", cid: CID }));
+}
+
+/* ================= Start ================= */
+const code = clean(params.get("s"), 6).toUpperCase().replace(/[^A-Z0-9]/g, "");
+if (code.length === 6) {
+  const hostState = store.get("sr-host-" + code);
+  const guest = store.get("sr-guest-" + code);
+  if (hostState && hostState.hostCid === CID) startHost(code, hostState.people?.[CID]?.name || savedName() || "Moderation", hostState);
+  else if (guest && guest.name) startGuest(code, guest.name, guest.role);
+  else showJoin(code);
+} else showStart();
+})();
+</script>
+</body>
+</html>
