@@ -150,201 +150,201 @@ label.field{display:block;font-size:13px;font-weight:500;color:var(--muted);marg
 <div id="app"></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
-<script>
-(() => {
-"use strict";
+<script type="module">
+/* =====================================================================
+   Schätzrunde – Echtzeit über Firebase Realtime Database
+   Die Konfiguration unten ist kein Geheimnis: Zugriffe werden über die
+   Sicherheitsregeln (database.rules.json) geschützt.
+   ===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyD_wnlktazFzKqSXWciZA6wYaO6-_wwu20",
+  authDomain: "estimator-bcf3a.firebaseapp.com",
+  databaseURL: "https://estimator-bcf3a-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "estimator-bcf3a",
+  storageBucket: "estimator-bcf3a.firebasestorage.app",
+  messagingSenderId: "296669176500",
+  appId: "1:296669176500:web:91193f0cbeacb233752de1",
+};
+const FIREBASE_VERSION = "12.19.0";
 
 /* ================= Konfiguration ================= */
 const SCALE   = ["0.5", "1", "2", "3", "5", "?", "☕"];
 const NUMERIC = { "0.5": 0.5, "1": 1, "2": 2, "3": 3, "5": 5 };
-const PREFIX  = "schaetzrunde-v1-";      // Präfix für Peer-IDs / Kanalnamen
-const ONLINE_MS = 12000;                  // ohne Lebenszeichen gilt jemand als offline
+const STALE_MS = 12 * 60 * 60 * 1000;     // Sessions ohne Änderung seit 12 h werden aufgeräumt
 const params = new URLSearchParams(location.search);
-const USE_LOCAL = params.get("transport") === "local"; // Testmodus: Tabs im selben Browser
-// Optional eigener PeerJS-Server: ?peerhost=example.com&peerport=443&peerpath=/
-const KEEP = {};
-["transport", "peerhost", "peerport", "peerpath"].forEach(k => { if (params.get(k)) KEEP[k] = params.get(k); });
-function peerOpts() {
-  const o = { debug: 0 };
-  if (KEEP.peerhost) {
-    o.host = KEEP.peerhost; o.path = KEEP.peerpath || "/";
-    o.port = Number(KEEP.peerport) || (location.protocol === "https:" ? 443 : 80);
-    o.secure = o.port === 443;
-  }
-  return o;
-}
+const USE_LOCAL = params.get("transport") === "local"; // Testmodus ohne Firebase (Tabs im selben Browser)
+const KEEP = USE_LOCAL ? { transport: "local" } : {};
 const linkFor = code => "?" + new URLSearchParams(code ? { s: code, ...KEEP } : KEEP);
 
 /* ================= Helpers ================= */
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const clean = (s, max) => String(s ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, max);
-const now = () => Date.now();
-const rid = (n = 12) => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => (b % 36).toString(36)).join("");
 function genCode() {
   const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from(crypto.getRandomValues(new Uint8Array(6)), b => A[b % A.length]).join("");
 }
-function fmt(n) { return (Math.round(n * 10) / 10).toString(); }
+const fmt = n => (Math.round(n * 10) / 10).toString();
 const store = {
-  get(k, local) { try { const s = local ? localStorage : sessionStorage; return JSON.parse(s.getItem(k)); } catch { return null; } },
-  set(k, v, local) { try { const s = local ? localStorage : sessionStorage; s.setItem(k, JSON.stringify(v)); } catch {} },
-  del(k, local) { try { const s = local ? localStorage : sessionStorage; s.removeItem(k); } catch {} },
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 let toastT;
 function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
-  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1800);
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2200);
 }
-const CID = store.get("sr-cid") || rid(); store.set("sr-cid", CID); // pro Tab eine Person
+function fail(e, what) {
+  console.error(what, e);
+  const denied = String(e && (e.code || e.message) || "").toLowerCase().includes("permission");
+  toast(denied ? `${what}: nicht erlaubt` : `${what} fehlgeschlagen. Verbindung prüfen.`);
+}
 const LOGO = `<svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="16" height="22" rx="3" fill="var(--accent-2)"/><rect x="12" y="3" width="16" height="22" rx="3" fill="var(--accent)"/></svg>`;
+const P = {
+  meta: c => `sessions/${c}/meta`,
+  people: c => `sessions/${c}/people`,
+  person: (c, u) => `sessions/${c}/people/${u}`,
+  votes: c => `sessions/${c}/votes`,
+  vote: (c, u) => `sessions/${c}/votes/${u}`,
+};
 
-/* ================= Transport =================
-   Moderation (Host) hält den Zustand. Gäste senden Aktionen, Host sendet den
-   (bereinigten) Zustand an alle. Zwei Varianten: PeerJS/WebRTC (Standard)
-   oder BroadcastChannel (?transport=local, zum Testen in mehreren Tabs). */
-const NET_ERRORS = ["network", "server-error", "socket-error", "socket-closed", "disconnected"];
-
-function hostTransport(code, onMsg, onStatus) {
-  if (USE_LOCAL) {
-    const bc = new BroadcastChannel(PREFIX + code);
-    bc.onmessage = e => { const d = e.data; if (d && d.dir === "g2h") onMsg(d.msg); };
-    setTimeout(() => onStatus("online"), 0);
-    return { broadcast(msg) { bc.postMessage({ dir: "h2g", msg }); } };
-  }
-  if (typeof Peer === "undefined") { setTimeout(() => onStatus("nolib"), 0); return { broadcast() {} }; }
-  const conns = new Set();
-  let peer, retry;
-  function start() {
-    onStatus("connecting");
-    const p = new Peer(PREFIX + code.toLowerCase(), peerOpts());
-    peer = p;
-    p.on("open", () => onStatus("online"));
-    p.on("connection", conn => {
-      conn.on("open", () => conns.add(conn));
-      conn.on("data", d => onMsg(d));
-      conn.on("close", () => conns.delete(conn));
-      conn.on("error", () => conns.delete(conn));
-    });
-    p.on("disconnected", () => {
-      if (p.destroyed || peer !== p) return;
-      onStatus("connecting");
-      setTimeout(() => { if (!p.destroyed && p.disconnected) try { p.reconnect(); } catch {} }, 1500);
-    });
-    p.on("error", err => {
-      if (peer !== p) return;
-      if (err.type === "unavailable-id" || NET_ERRORS.includes(err.type)) {
-        onStatus(err.type === "unavailable-id" ? "claiming" : "connecting");
-        if (err.type === "unavailable-id") { try { p.destroy(); } catch {} clearTimeout(retry); retry = setTimeout(start, 3000); }
-      }
-    });
-  }
-  start();
-  return { broadcast(msg) { for (const c of conns) if (c.open) try { c.send(msg); } catch {} } };
+/* ================= Datenbank-Adapter =================
+   Einheitliche Schnittstelle, damit die App-Logik nicht von Firebase abhängt.
+   firebaseAdapter: echte Datenbank. localAdapter: Nachbildung für Tests. */
+async function firebaseAdapter() {
+  const B = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
+  const [A, AU, D] = await Promise.all([import(B + "firebase-app.js"), import(B + "firebase-auth.js"), import(B + "firebase-database.js")]);
+  const app = A.getApps().length ? A.getApp() : A.initializeApp(FIREBASE_CONFIG);
+  const auth = AU.getAuth(app);
+  await auth.authStateReady();
+  if (!auth.currentUser) await AU.signInAnonymously(auth);
+  const db = D.getDatabase(app);
+  let offset = 0;
+  D.onValue(D.ref(db, ".info/serverTimeOffset"), s => { offset = s.val() || 0; });
+  return {
+    uid: auth.currentUser.uid,
+    TS: D.serverTimestamp(),
+    onValue: (p, cb, err) => D.onValue(D.ref(db, p), s => cb(s.val()), e => err && err(e)),
+    get: async p => (await D.get(D.ref(db, p))).val(),
+    update: o => D.update(D.ref(db), o),
+    onDisconnectUpdate: (p, o) => D.onDisconnect(D.ref(db, p)).update(o),
+    cancelOnDisconnect: p => D.onDisconnect(D.ref(db, p)).cancel(),
+    onConnected: cb => D.onValue(D.ref(db, ".info/connected"), s => cb(!!s.val())),
+    serverNow: () => Date.now() + offset,
+    staleCodes: async cutoff => Object.keys((await D.get(D.query(D.ref(db, "index"), D.orderByValue(), D.endAt(cutoff), D.limitToFirst(20)))).val() || {}),
+  };
 }
 
-function guestTransport(code, onMsg, onStatus) {
-  if (USE_LOCAL) {
-    const bc = new BroadcastChannel(PREFIX + code);
-    bc.onmessage = e => { const d = e.data; if (d && d.dir === "h2g") onMsg(d.msg); };
-    setTimeout(() => onStatus("open"), 0);
-    return { send(msg) { bc.postMessage({ dir: "g2h", msg }); } };
-  }
-  if (typeof Peer === "undefined") { setTimeout(() => onStatus("nolib"), 0); return { send() {} }; }
-  const hostId = PREFIX + code.toLowerCase();
-  let peer, conn, timer, openTimer;
-  const schedule = (ms = 2500) => { clearTimeout(timer); timer = setTimeout(connect, ms); };
-  function newPeer() {
-    onStatus("connecting");
-    const p = new Peer(peerOpts());
-    peer = p;
-    p.on("open", () => connect());
-    p.on("error", err => {
-      if (peer !== p) return;
-      if (err.type === "peer-unavailable") { onStatus("nohost"); schedule(3000); }
-      else if (NET_ERRORS.includes(err.type)) { try { p.destroy(); } catch {} schedule(); }
-    });
-    p.on("disconnected", () => { if (!p.destroyed) setTimeout(() => { if (!p.destroyed && p.disconnected) try { p.reconnect(); } catch {} }, 1500); });
-  }
-  function connect() {
-    if (!peer || peer.destroyed) return newPeer();
-    if (peer.disconnected) { try { peer.reconnect(); } catch {} return schedule(); }
-    if (conn && conn.open) return;
-    const c = peer.connect(hostId, { reliable: true, serialization: "json" });
-    conn = c;
-    clearTimeout(openTimer);
-    openTimer = setTimeout(() => { if (conn === c && !c.open) { try { c.close(); } catch {} schedule(500); } }, 10000);
-    c.on("open", () => { clearTimeout(openTimer); onStatus("open"); });
-    c.on("data", d => onMsg(d));
-    c.on("close", () => { if (conn === c) { onStatus("connecting"); schedule(); } });
-    c.on("error", () => { if (conn === c) schedule(); });
-  }
-  newPeer();
-  return { send(msg) { if (conn && conn.open) try { conn.send(msg); } catch {} } };
+function localAdapter() {
+  // Nur zum Testen: «Datenbank» in localStorage, synchronisiert über Tabs desselben Browsers.
+  const KEY = "sr-localdb";
+  const TS = { ".sv": "timestamp" };
+  let uid = sessionStorage.getItem("sr-local-uid");
+  if (!uid) { uid = "u" + Math.random().toString(36).slice(2, 10); sessionStorage.setItem("sr-local-uid", uid); }
+  const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
+  const at = (root, p) => p.split("/").filter(Boolean).reduce((o, k) => (o && typeof o === "object" ? o[k] : undefined), root) ?? null;
+  const listeners = new Set();
+  const notify = () => { const root = read(); listeners.forEach(l => { const v = JSON.stringify(at(root, l.p)); if (v !== l.last) { l.last = v; l.cb(JSON.parse(v)); } }); };
+  addEventListener("storage", e => { if (e.key === KEY) notify(); });
+  const resolve = v => (v && typeof v === "object" ? (v[".sv"] ? Date.now() : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, resolve(x)]))) : v);
+  const apply = o => {
+    const root = read();
+    for (const [p, v] of Object.entries(o)) {
+      const ks = p.split("/").filter(Boolean); let cur = root;
+      ks.slice(0, -1).forEach(k => { if (!cur[k] || typeof cur[k] !== "object") cur[k] = {}; cur = cur[k]; });
+      if (v === null) delete cur[ks.at(-1)]; else cur[ks.at(-1)] = resolve(v);
+    }
+    localStorage.setItem(KEY, JSON.stringify(root)); notify();
+  };
+  const disc = {};
+  addEventListener("pagehide", () => Object.values(disc).forEach(apply));
+  return {
+    uid, TS,
+    onValue(p, cb) { const l = { p, cb, last: undefined }; listeners.add(l); setTimeout(notify, 0); return () => listeners.delete(l); },
+    get: async p => at(read(), p),
+    update: async o => apply(o),
+    onDisconnectUpdate: async (p, o) => { disc[p] = Object.fromEntries(Object.entries(o).map(([k, v]) => [p + "/" + k, v])); },
+    cancelOnDisconnect: async p => { delete disc[p]; },
+    onConnected(cb) { setTimeout(() => cb(true), 0); return () => {}; },
+    serverNow: () => Date.now(),
+    staleCodes: async cutoff => Object.entries(read().index || {}).filter(([, v]) => v <= cutoff).map(([k]) => k),
+  };
+}
+
+let DBP = null;
+function db() {
+  if (!DBP) DBP = (USE_LOCAL ? Promise.resolve().then(localAdapter) : firebaseAdapter()).catch(e => { DBP = null; throw e; });
+  return DBP;
 }
 
 /* ================= Analyse der Stimmen ================= */
 function analyze(people) {
   const voted = people.filter(p => p.vote != null);
   const nums = voted.filter(p => p.vote in NUMERIC);
-  const special = {};
-  voted.forEach(p => { if (!(p.vote in NUMERIC)) special[p.vote] = (special[p.vote] || 0) + 1; });
-  const counts = {};
-  voted.forEach(p => { counts[p.vote] = (counts[p.vote] || 0) + 1; });
+  const special = {}, counts = {};
+  voted.forEach(p => { counts[p.vote] = (counts[p.vote] || 0) + 1; if (!(p.vote in NUMERIC)) special[p.vote] = (special[p.vote] || 0) + 1; });
   if (!nums.length) return { voted, nums, special, counts };
   const vals = nums.map(p => NUMERIC[p.vote]);
   const min = Math.min(...vals), max = Math.max(...vals);
   return {
-    voted, nums, special, counts, min, max,
-    consensus: min === max,
+    voted, nums, special, counts, min, max, consensus: min === max,
     lows: nums.filter(p => NUMERIC[p.vote] === min),
     highs: nums.filter(p => NUMERIC[p.vote] === max),
   };
 }
 
-/* ================= Startbildschirme ================= */
+/* ================= Einstiegsbildschirme ================= */
 const app = $("#app");
-const savedName = () => store.get("sr-name", true) || "";
+const savedName = () => store.get("sr-name") || "";
 
-function showStart(prefillErr) {
+function showLoading(text) {
+  app.innerHTML = `<div class="entry"><div class="entry-card"><div class="logo">${LOGO} Schätzrunde</div><p class="lead" style="margin:18px 0 0">${esc(text)}</p></div></div>`;
+}
+function showError(text) {
+  app.innerHTML = `<div class="entry"><div class="entry-card"><div class="logo">${LOGO} Schätzrunde</div>
+    <h1>Keine Verbindung</h1><p class="lead">${esc(text)}</p>
+    <button class="btn primary" onclick="location.reload()">Nochmals versuchen</button></div></div>`;
+}
+
+function showStart(msg) {
+  app.onclick = app.onchange = null;
+  history.replaceState(null, "", location.pathname + (USE_LOCAL ? linkFor() : ""));
   app.innerHTML = `
   <div class="entry"><div class="entry-card">
     <div class="logo">${LOGO} Schätzrunde</div>
     <h1>Gemeinsam schätzen</h1>
-    <p class="lead">Kein Login, nichts wird gespeichert. Starte eine Session und teile den Link mit deinem Team.</p>
+    <p class="lead">Kein Login. Starte eine Session und teile den Link mit deinem Team.</p>
+    ${msg ? `<div class="banner" style="margin-bottom:16px">${esc(msg)}</div>` : ""}
     <form id="fStart" class="stack">
       <div><label class="field" for="nStart">Dein Name</label>
       <input id="nStart" class="input" maxlength="24" autocomplete="nickname" required value="${esc(savedName())}"></div>
-      <button class="btn primary" type="submit">Neue Session starten</button>
+      <button class="btn primary" type="submit" id="bStart">Neue Session starten</button>
+      <div class="err" id="eStart"></div>
     </form>
     <div class="divider">oder beitreten</div>
     <form id="fJoin" class="stack">
       <div><label class="field" for="cJoin">Session-Code</label>
       <div class="row"><input id="cJoin" class="input" maxlength="6" placeholder="z. B. K7M2QX" autocapitalize="characters" autocomplete="off" required style="text-transform:uppercase;letter-spacing:.08em">
       <button class="btn" type="submit">Weiter</button></div></div>
-      <div class="err" id="eJoin">${esc(prefillErr || "")}</div>
     </form>
   </div></div>`;
-  $("#fStart").onsubmit = e => {
+  $("#fStart").onsubmit = async e => {
     e.preventDefault();
     const name = clean($("#nStart").value, 24); if (!name) return;
-    store.set("sr-name", name, true);
-    const code = genCode();
-    history.replaceState(null, "", linkFor(code));
-    startHost(code, name, null);
+    store.set("sr-name", name);
+    $("#bStart").disabled = true; $("#bStart").textContent = "Wird erstellt…";
+    try { const code = await createSession(name); openSession(code); }
+    catch (err) { console.error(err); $("#eStart").textContent = "Session konnte nicht erstellt werden. Verbindung prüfen und nochmals versuchen."; $("#bStart").disabled = false; $("#bStart").textContent = "Neue Session starten"; }
   };
   $("#fJoin").onsubmit = e => {
     e.preventDefault();
     const code = clean($("#cJoin").value, 6).toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (code.length !== 6) { $("#eJoin").textContent = "Der Code hat 6 Zeichen."; return; }
-    history.replaceState(null, "", linkFor(code));
-    showJoin(code);
+    if (code.length === 6) openSession(code);
   };
 }
 
 function showJoin(code) {
-  let role = store.get("sr-role", true) === "observer" ? "observer" : "voter";
+  let role = store.get("sr-role") === "observer" ? "observer" : "voter";
   app.innerHTML = `
   <div class="entry"><div class="entry-card">
     <div class="logo">${LOGO} Schätzrunde</div>
@@ -358,28 +358,71 @@ function showJoin(code) {
         <button type="button" data-role="voter">Mitschätzen</button>
         <button type="button" data-role="observer">Nur zuschauen</button>
       </div></div>
-      <button class="btn primary" type="submit">Beitreten</button>
-      <a class="small muted" href="${esc(location.pathname + (Object.keys(KEEP).length ? linkFor() : ""))}">Andere Session / neue starten</a>
+      <button class="btn primary" type="submit" id="bJoin">Beitreten</button>
+      <div class="err" id="eJoin"></div>
+      <a class="small muted" href="${esc(location.pathname + (USE_LOCAL ? linkFor() : ""))}">Andere Session / neue starten</a>
     </form>
   </div></div>`;
   const seg = () => app.querySelectorAll("[data-role]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.role === role)));
   app.querySelectorAll("[data-role]").forEach(b => b.onclick = () => { role = b.dataset.role; seg(); });
   seg();
   $("#nJoin").focus();
-  $("#fName").onsubmit = e => {
+  $("#fName").onsubmit = async e => {
     e.preventDefault();
     const name = clean($("#nJoin").value, 24); if (!name) return;
-    store.set("sr-name", name, true); store.set("sr-role", role, true);
-    store.set("sr-guest-" + code, { name, role });
-    startGuest(code, name, role);
+    store.set("sr-name", name); store.set("sr-role", role);
+    $("#bJoin").disabled = true;
+    try {
+      const d = await db();
+      await d.update({ [P.person(code, d.uid)]: { name, role, online: true, joinedAt: d.TS } });
+      enterRoom(code);
+    } catch (err) { console.error(err); $("#eJoin").textContent = "Beitreten fehlgeschlagen. Existiert die Session noch?"; $("#bJoin").disabled = false; }
   };
 }
 
-/* ================= Raum (gemeinsame Oberfläche) ================= */
-let ui = null; // { isHost, actions }
+/* ================= Session anlegen / öffnen ================= */
+async function createSession(name) {
+  const d = await db();
+  for (let i = 0; i < 5; i++) {
+    const code = genCode();
+    if (await d.get(P.meta(code))) continue; // Code schon vergeben
+    await d.update({
+      [P.meta(code)]: { host: d.uid, round: 1, revealed: false, createdAt: d.TS, updatedAt: d.TS },
+      [P.person(code, d.uid)]: { name, role: "voter", online: true, joinedAt: d.TS },
+      [`index/${code}`]: d.TS,
+    });
+    cleanupStale(); // alte, vergessene Sessions im Hintergrund entfernen
+    return code;
+  }
+  throw new Error("Kein freier Code gefunden");
+}
 
-function mountRoom(code, isHost, actions) {
-  ui = { isHost, actions, code };
+async function cleanupStale() {
+  try {
+    const d = await db();
+    const codes = await d.staleCodes(d.serverNow() - STALE_MS - 10 * 60 * 1000);
+    for (const c of codes) await d.update({ [`sessions/${c}`]: null, [`index/${c}`]: null }).catch(() => {});
+  } catch (e) { console.warn("Aufräumen übersprungen", e); }
+}
+
+async function openSession(code) {
+  history.replaceState(null, "", location.pathname + linkFor(code));
+  showLoading("Verbinde mit der Session…");
+  let d;
+  try { d = await db(); }
+  catch (e) { console.error(e); return showError("Die Verbindung zum Server konnte nicht aufgebaut werden. Eventuell blockiert ein Netzwerkfilter firebasedatabase.app bzw. googleapis.com."); }
+  try {
+    const meta = await d.get(P.meta(code));
+    if (!meta) return showStart(`Die Session ${code} gibt es nicht (mehr).`);
+    const me = await d.get(P.person(code, d.uid));
+    if (me) enterRoom(code); else showJoin(code);
+  } catch (e) { console.error(e); showError("Die Session konnte nicht geladen werden."); }
+}
+
+/* ================= Raum ================= */
+let room = null; // aktueller Raum-Zustand
+
+function mountRoom(code, actions) {
   app.innerHTML = `
   <header class="top">
     <div class="logo">${LOGO}<span>Schätzrunde</span></div>
@@ -392,31 +435,23 @@ function mountRoom(code, isHost, actions) {
   <main class="layout">
     <section class="stage">
       <div id="banner"></div>
-      <div class="panel current"><div><div class="eyebrow" id="eyebrow">Runde</div><h1 id="curTitle"></h1></div><div class="me" id="me"></div></div>
-      <div class="panel table-wrap" id="table"></div>
+      <div class="panel current"><div><div class="eyebrow" id="eyebrow">Einen Moment…</div><h1 id="curTitle"></h1></div><div class="me" id="me"></div></div>
+      <div class="panel table-wrap" id="table"><div class="empty">Lade…</div></div>
       <div id="result"></div>
       <div class="deck-wrap" id="deckWrap"></div>
     </section>
   </main>`;
-
   $("#copy").onclick = async () => {
     const url = location.origin + location.pathname + linkFor(code);
     try { await navigator.clipboard.writeText(url); toast("Link kopiert"); }
     catch { prompt("Link zum Teilen:", url); }
   };
-  // Eine Ereignisbehandlung für alle dynamischen Knöpfe
-  app.addEventListener("click", e => {
+  app.onclick = e => {
     const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
     const a = b.dataset.act, v = b.dataset.v;
-    if (a === "vote") actions.vote(v);
-    else if (a === "reveal") actions.reveal();
-    else if (a === "round") actions.newRound();
-    else if (a === "kick") actions.removePerson(v);
-    else if (a === "role") actions.setRole(v);
-  });
-  app.addEventListener("change", e => {
-    if (e.target.id === "hostVotes") actions.setHostVotes(e.target.checked);
-  });
+    if (actions[a]) actions[a](v);
+  };
+  app.onchange = e => { if (e.target.id === "hostVotes") actions.role(e.target.checked ? "voter" : "observer"); };
 }
 
 function setConn(text, cls) {
@@ -424,21 +459,151 @@ function setConn(text, cls) {
   c.textContent = text; c.className = "conn " + (cls || "");
 }
 
-/* view: bereinigter Zustand vom Host; me: { cid, myVote } */
+async function enterRoom(code) {
+  const d = await db();
+  const uid = d.uid;
+  const S = { meta: undefined, people: undefined, votes: {}, connected: false };
+  const unsubs = [];
+  let unVotes = null, votesMode = null, autoRevealDone = null;
+
+  const view = () => {
+    const m = S.meta, round = m.round;
+    const people = Object.entries(S.people || {})
+      .filter(([, p]) => p && typeof p.name === "string")
+      .sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0))
+      .map(([cid, p]) => {
+        const v = S.votes[cid];
+        return {
+          cid, name: p.name, role: p.role === "observer" ? "observer" : "voter", online: p.online === true,
+          voted: p.votedRound === round,
+          vote: m.revealed && v && v.r === round ? v.v : null,
+        };
+      });
+    return { code, round, revealed: !!m.revealed, host: m.host, people };
+  };
+  const myVote = () => { const v = S.votes[uid]; return v && S.meta && v.r === S.meta.round ? v.v : null; };
+
+  function watchVotes() {
+    const want = S.meta && S.meta.revealed ? "all" : "own";
+    if (want === votesMode) return;
+    if (unVotes) unVotes();
+    votesMode = want; S.votes = {};
+    if (want === "all") unVotes = d.onValue(P.votes(code), v => { S.votes = v || {}; render(); }, () => {});
+    else unVotes = d.onValue(P.vote(code, uid), v => { S.votes = v ? { [uid]: v } : {}; render(); }, () => {});
+  }
+
+  function render() {
+    if (S.meta === undefined || S.people === undefined) return;
+    const v = view();
+    renderRoom(v, { cid: uid, myVote: myVote(), connected: S.connected });
+    // Automatisch aufdecken, sobald alle (online) Schätzenden gewählt haben – das darf jede:r auslösen
+    if (!v.revealed && autoRevealDone !== v.round && v.people.some(p => p.cid === uid)) {
+      const el = v.people.filter(p => p.role === "voter" && p.online);
+      if (el.length && el.every(p => p.voted)) {
+        autoRevealDone = v.round;
+        d.update({ [P.meta(code) + "/revealed"]: true }).catch(e => { autoRevealDone = null; console.warn(e); });
+      }
+    }
+  }
+
+  let left = false;
+  function leave(msg) {
+    if (left) return; left = true;
+    unsubs.forEach(u => u()); if (unVotes) unVotes();
+    d.cancelOnDisconnect(P.person(code, uid)).catch(() => {});
+    room = null; showStart(msg);
+  }
+
+  const actions = {
+    vote(val) {
+      const v = view(); const me = v.people.find(p => p.cid === uid);
+      if (v.revealed || !me || me.role !== "voter") return;
+      const next = myVote() === val ? null : val;
+      S.votes = next ? { ...S.votes, [uid]: { v: next, r: v.round } } : Object.fromEntries(Object.entries(S.votes).filter(([k]) => k !== uid));
+      render();
+      d.update({
+        [P.vote(code, uid)]: next ? { v: next, r: v.round } : null,
+        [P.person(code, uid) + "/votedRound"]: next ? v.round : null,
+      }).catch(e => fail(e, "Stimme"));
+    },
+    reveal() { d.update({ [P.meta(code) + "/revealed"]: true }).catch(e => fail(e, "Aufdecken")); },
+    round() {
+      d.update({
+        [P.meta(code) + "/round"]: S.meta.round + 1,
+        [P.meta(code) + "/revealed"]: false,
+        [P.meta(code) + "/updatedAt"]: d.TS,
+        [P.votes(code)]: null,
+        [`index/${code}`]: d.TS,
+      }).catch(e => fail(e, "Neue Runde"));
+    },
+    role(r) {
+      const role = r === "observer" ? "observer" : "voter";
+      store.set("sr-role", role);
+      const o = { [P.person(code, uid) + "/role"]: role };
+      if (role === "observer" && !S.meta.revealed && myVote() != null) { o[P.vote(code, uid)] = null; o[P.person(code, uid) + "/votedRound"] = null; }
+      d.update(o).catch(e => fail(e, "Rolle ändern"));
+    },
+    kick(cid) { d.update({ [P.person(code, cid)]: null }).catch(e => fail(e, "Entfernen")); },
+    takeover() {
+      d.update({ [P.meta(code) + "/host"]: uid, [P.meta(code) + "/updatedAt"]: d.TS, [`index/${code}`]: d.TS })
+        .then(() => toast("Du moderierst jetzt")).catch(e => fail(e, "Übernehmen"));
+    },
+    end() {
+      if (!confirm("Session für alle beenden? Alle Daten dieser Session werden gelöscht.")) return;
+      d.cancelOnDisconnect(P.person(code, uid)).catch(() => {});
+      d.update({ [`sessions/${code}`]: null, [`index/${code}`]: null }).catch(e => fail(e, "Beenden"));
+    },
+  };
+
+  mountRoom(code, actions);
+  room = { code };
+
+  // Online-Status: bei Verbindungsabbruch setzt der Server «offline»
+  unsubs.push(d.onConnected(async on => {
+    S.connected = on; setConn(on ? "Verbunden" : "Verbinde…", on ? "ok" : ""); render();
+    if (!on || !S.people || !S.people[uid]) return;
+    try {
+      await d.onDisconnectUpdate(P.person(code, uid), { online: false });
+      await d.update({ [P.person(code, uid) + "/online"]: true });
+    } catch (e) { console.warn(e); }
+  }));
+  unsubs.push(d.onValue(P.meta(code), m => {
+    if (!m) return leave("Die Session wurde beendet.");
+    S.meta = m; watchVotes(); render();
+  }, e => { console.error(e); leave("Kein Zugriff auf diese Session."); }));
+  let wasIn = false;
+  unsubs.push(d.onValue(P.people(code), p => {
+    S.people = p || {};
+    const inNow = !!S.people[uid];
+    if (wasIn && !inNow) return leave("Du wurdest aus der Session entfernt.");
+    if (!wasIn && inNow && S.connected) { // erster Eintritt: Online-Status sicherstellen
+      d.onDisconnectUpdate(P.person(code, uid), { online: false }).then(() => {
+        if (S.people[uid] && S.people[uid].online !== true) return d.update({ [P.person(code, uid) + "/online"]: true });
+      }).catch(e => console.warn(e));
+    }
+    wasIn = inNow; render();
+  }, e => console.error(e)));
+}
+
+/* view: { code, round, revealed, host, people[] }; me: { cid, myVote, connected } */
 function renderRoom(view, me) {
-  if (!ui) return;
-  const isHost = ui.isHost;
+  const isHost = view.host === me.cid;
   const people = view.people;
   const self = people.find(p => p.cid === me.cid);
-  const eligible = p => p.role === "voter" || (p.role === "host" && view.hostVotes);
-  const voters = people.filter(eligible);
+  const hostP = people.find(p => p.cid === view.host);
+  const voters = people.filter(p => p.role === "voter");
+  const observers = people.filter(p => p.role !== "voter");
   const onlineVoters = voters.filter(p => p.online);
   const votedCount = onlineVoters.filter(p => p.voted).length;
-  const observers = people.filter(p => !eligible(p));
-  const iCanVote = self && eligible(self);
+  const iCanVote = self && self.role === "voter";
   const A = view.revealed ? analyze(people) : null;
 
-  /* Runde */
+  /* Hinweis, wenn die Moderation weg ist */
+  $("#banner").innerHTML = (!isHost && (!hostP || !hostP.online))
+    ? `<div class="banner" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <span>Die Moderation ist offline. Jemand kann übernehmen.</span>
+        <button class="btn small" data-act="takeover">Moderation übernehmen</button></div>` : "";
+
   $("#eyebrow").textContent = view.revealed ? "Aufgedeckt" : "Abstimmung läuft";
   $("#curTitle").textContent = "Runde " + view.round;
 
@@ -446,14 +611,15 @@ function renderRoom(view, me) {
   const spread = A && A.nums.length && !A.consensus;
   const lowSet = new Set(spread ? A.lows.map(p => p.cid) : []);
   const highSet = new Set(spread ? A.highs.map(p => p.cid) : []);
+  const kick = p => isHost && p.cid !== me.cid && !p.online ? ` · <button class="btn ghost small" style="padding:0 4px" data-act="kick" data-v="${esc(p.cid)}">entfernen</button>` : "";
   const seat = p => {
     const cls = ["seat", p.online ? "" : "off", lowSet.has(p.cid) ? "low" : "", highSet.has(p.cid) ? "high" : ""].join(" ");
     let card;
     if (view.revealed) card = p.vote != null ? `<div class="pcard up">${esc(p.vote)}</div>` : `<div class="pcard none" title="Nicht gewählt">–</div>`;
     else card = p.voted ? `<div class="pcard down" title="Hat gewählt"></div>` : `<div class="pcard" title="Wählt noch"></div>`;
     const tag = lowSet.has(p.cid) ? `<span class="tag">tiefster</span>` : highSet.has(p.cid) ? `<span class="tag">höchster</span>` : "";
-    const sub = !p.online ? `<span class="sub">offline${isHost && p.role !== "host" ? ` · <button class="btn ghost small" style="padding:0 4px" data-act="kick" data-v="${esc(p.cid)}">entfernen</button>` : ""}</span>`
-      : p.role === "host" ? `<span class="sub">Moderation</span>` : "";
+    const subTxt = [p.cid === view.host ? "Moderation" : "", p.online ? "" : "offline"].filter(Boolean).join(" · ");
+    const sub = subTxt || kick(p) ? `<span class="sub">${subTxt}${kick(p)}</span>` : "";
     return `<div class="${cls}">${card}<span class="nm" title="${esc(p.name)}">${esc(p.name)}${p.cid === me.cid ? " (du)" : ""}</span>${tag}${sub}</div>`;
   };
   const pct = onlineVoters.length ? Math.round(votedCount / onlineVoters.length * 100) : 0;
@@ -466,20 +632,17 @@ function renderRoom(view, me) {
   $("#table").innerHTML = `
     <div class="progress">${progress}<div class="actions">${hostBtns}</div></div>
     ${voters.length ? `<div class="seats">${voters.map(seat).join("")}</div>` : `<div class="empty">Noch niemand schätzt mit. Teile den Link!</div>`}
-    ${observers.length ? `<div class="observers">Zuschauend: ${observers.map(p => esc(p.name) + (p.cid === me.cid ? " (du)" : "") + (p.online ? "" : " (offline)")).join(", ")}</div>` : ""}`;
+    ${observers.length ? `<div class="observers">Zuschauend: ${observers.map(p => esc(p.name) + (p.cid === me.cid ? " (du)" : "") + (p.cid === view.host ? " (Moderation)" : "") + (p.online ? "" : " (offline)") + kick(p)).join(", ")}</div>` : ""}`;
 
   /* Ergebnis */
   let res = "";
   if (view.revealed) {
     const specials = Object.entries(A.special).map(([k, c]) => `<span class="chip"><b>${c}×</b> ${esc(k)}</span>`).join("");
     const dist = SCALE.filter(k => A.counts[k]).map(k => `<span class="chip"><b>${esc(k)}</b> · ${A.counts[k]}×</span>`).join("");
-    if (!A.voted.length) {
-      res = `<p class="hint">Niemand hat gewählt.</p>`;
-    } else if (!A.nums.length) {
-      res = `<div class="big">Keine Zahlen-Schätzung</div><div class="dist">${specials}</div><p class="hint">Klärt die offenen Fragen und startet eine neue Runde.</p>`;
-    } else if (A.consensus) {
-      res = `<div class="big">Einig: ${esc(A.nums[0].vote)} 🎉</div>${specials ? `<div class="dist">${specials}</div>` : ""}`;
-    } else {
+    if (!A.voted.length) res = `<p class="hint">Niemand hat gewählt.</p>`;
+    else if (!A.nums.length) res = `<div class="big">Keine Zahlen-Schätzung</div><div class="dist">${specials}</div><p class="hint">Klärt die offenen Fragen und startet eine neue Runde.</p>`;
+    else if (A.consensus) res = `<div class="big">Einig: ${esc(A.nums[0].vote)} 🎉</div>${specials ? `<div class="dist">${specials}</div>` : ""}`;
+    else {
       const names = arr => arr.map(p => esc(p.name)).join(", ");
       res = `<div class="spread">
           <div class="lo"><div class="k">Tiefster Wert</div><div class="v">${fmt(A.min)}</div><div class="who">${names(A.lows)}</div></div>
@@ -504,8 +667,8 @@ function renderRoom(view, me) {
   /* Du */
   let meHtml = `<div class="who">${esc(self ? self.name : "…")}</div>`;
   if (isHost) {
-    meHtml += `<label class="check"><input type="checkbox" id="hostVotes" ${view.hostVotes ? "checked" : ""}> Ich schätze mit</label>
-      <p class="small muted note">Du moderierst. Lass diesen Tab offen, sonst endet die Session für alle.</p>`;
+    meHtml += `<label class="check"><input type="checkbox" id="hostVotes" ${self && self.role === "voter" ? "checked" : ""}> Ich schätze mit</label>
+      <button class="btn small" data-act="end">Session beenden</button>`;
   } else if (self) {
     meHtml += `<div class="seg" role="group" aria-label="Rolle">
       <button data-act="role" data-v="voter" aria-pressed="${self.role === "voter"}">Mitschätzen</button>
@@ -514,181 +677,11 @@ function renderRoom(view, me) {
   $("#me").innerHTML = meHtml;
 }
 
-/* ================= Host ================= */
-function startHost(code, name, restored) {
-  const key = "sr-host-" + code;
-  const S = restored || {
-    code, round: 1, revealed: false, hostVotes: true,
-    people: {}, votes: {}, hostCid: CID,
-  };
-  S.hostCid = CID;
-  const t0 = now();
-  // Nach einem Neuladen allen kurz Zeit geben, sich wieder zu melden
-  Object.values(S.people).forEach(p => { p.lastSeen = t0; });
-  S.people[CID] = { ...(S.people[CID] || { joinedAt: t0 }), name, role: "host", lastSeen: t0 };
-
-  const isOnline = (cid, p) => cid === S.hostCid || now() - p.lastSeen < ONLINE_MS;
-  const eligible = (cid, p) => p.role === "voter" || (p.role === "host" && S.hostVotes);
-  let lastOnlineSig = "";
-
-  function publicView() {
-    return {
-      code: S.code, round: S.round,
-      revealed: S.revealed, hostVotes: S.hostVotes,
-      people: Object.entries(S.people)
-        .sort((a, b) => a[1].joinedAt - b[1].joinedAt)
-        .map(([cid, p]) => ({
-          cid, name: p.name, role: p.role, online: isOnline(cid, p),
-          voted: S.votes[cid] != null,
-          vote: S.revealed ? (S.votes[cid] ?? null) : null, // vor dem Aufdecken nie mitsenden
-        })),
-    };
-  }
-  function onlineSig() { return Object.entries(S.people).map(([c, p]) => c + (isOnline(c, p) ? 1 : 0) + p.role).join("|"); }
-  function autoReveal() {
-    if (S.revealed) return;
-    const el = Object.entries(S.people).filter(([c, p]) => isOnline(c, p) && eligible(c, p));
-    if (el.length && el.every(([c]) => S.votes[c] != null)) S.revealed = true;
-  }
-  function changed() {
-    autoReveal();
-    lastOnlineSig = onlineSig();
-    store.set(key, S);
-    const v = publicView();
-    net.broadcast({ t: "state", s: v });
-    renderRoom(v, { cid: CID, myVote: S.votes[CID] ?? null });
-  }
-  function resetRound() { S.round++; S.votes = {}; S.revealed = false; }
-
-  function onGuest(m) {
-    if (!m || typeof m !== "object" || typeof m.cid !== "string" || m.cid.length > 40 || m.cid === S.hostCid) return;
-    const t = now();
-    if (m.t === "hello") {
-      const nm = clean(m.name, 24) || "Gast";
-      const role = m.role === "observer" ? "observer" : "voter";
-      let p = S.people[m.cid], dirty = false;
-      if (!p) {
-        if (Object.keys(S.people).length >= 60) return;
-        p = S.people[m.cid] = { name: nm, role, joinedAt: t, lastSeen: t }; dirty = true;
-      } else {
-        if (!isOnline(m.cid, p)) dirty = true;
-        if (p.name !== nm) { p.name = nm; dirty = true; }
-        if (p.role !== role) { p.role = role; if (role === "observer") delete S.votes[m.cid]; dirty = true; }
-        p.lastSeen = t;
-      }
-      if (dirty) changed();
-      else if (m.need) net.broadcast({ t: "state", s: publicView() });
-    } else if (m.t === "vote") {
-      const p = S.people[m.cid];
-      if (!p || p.role !== "voter" || S.revealed || m.round !== S.round) return;
-      p.lastSeen = t;
-      if (m.value === null) { if (S.votes[m.cid] == null) return; delete S.votes[m.cid]; }
-      else if (SCALE.includes(m.value)) { if (S.votes[m.cid] === m.value) return; S.votes[m.cid] = m.value; }
-      else return;
-      changed();
-    } else if (m.t === "bye") {
-      const p = S.people[m.cid]; if (p) { p.lastSeen = 0; changed(); }
-    }
-  }
-
-  const actions = {
-    vote(v) {
-      if (S.revealed || !S.hostVotes) return;
-      if (S.votes[CID] === v) delete S.votes[CID]; else S.votes[CID] = v;
-      changed();
-    },
-    reveal() { if (!S.revealed) { S.revealed = true; changed(); } },
-    newRound() { resetRound(); changed(); },
-    removePerson(cid) { if (cid === S.hostCid) return; delete S.people[cid]; delete S.votes[cid]; changed(); },
-    setHostVotes(on) { S.hostVotes = !!on; if (!on) delete S.votes[CID]; changed(); },
-    setRole() {},
-  };
-
-  mountRoom(code, true, actions);
-  const net = hostTransport(code, onGuest, st => {
-    if (st === "online") setConn("Online", "ok");
-    else if (st === "claiming") setConn("Session wird übernommen…", "");
-    else if (st === "nolib") setConn("Netzwerk-Bibliothek fehlt", "bad");
-    else setConn("Verbinde…", "");
-  });
-  changed();
-  // Regelmässig: Online-Status prüfen und Zustand senden (für Nachzügler)
-  setInterval(() => { if (onlineSig() !== lastOnlineSig) changed(); }, 2000);
-  setInterval(() => net.broadcast({ t: "state", s: publicView() }), 5000);
-}
-
-/* ================= Gast ================= */
-function startGuest(code, name, role) {
-  let view = null, myVote = null, myRound = null, lastState = 0, tStatus = "connecting";
-  const me = { name, role };
-
-  const hello = need => net.send({ t: "hello", cid: CID, name: me.name, role: me.role, need: !!need });
-  function render() { if (view) renderRoom(view, { cid: CID, myVote }); }
-  function updateConn() {
-    const fresh = now() - lastState < ONLINE_MS;
-    if (tStatus === "nolib") setConn("Netzwerk-Bibliothek fehlt", "bad");
-    else if (tStatus === "nohost") setConn("Moderation nicht erreichbar", "bad");
-    else if (tStatus === "open" && fresh) setConn("Verbunden", "ok");
-    else if (tStatus === "open") setConn("Warte auf Moderation…", "");
-    else setConn("Verbinde…", "");
-    const b = $("#banner");
-    if (b) b.innerHTML = (tStatus === "nohost" && !fresh)
-      ? `<div class="banner">Die Moderation ist gerade nicht erreichbar. Ist der Code richtig und die Session noch offen? Ich versuche es weiter…</div>` : "";
-  }
-
-  function onHost(m) {
-    if (!m || m.t !== "state" || !m.s || !Array.isArray(m.s.people)) return;
-    const first = !view;
-    view = m.s; lastState = now();
-    if (view.round !== myRound) { myRound = view.round; myVote = null; }
-    const self = view.people.find(p => p.cid === CID);
-    if (!self) { hello(true); }
-    else {
-      if (view.revealed) myVote = self.vote ?? null;
-      else if (myVote != null && !self.voted && self.role === "voter") net.send({ t: "vote", cid: CID, round: view.round, value: myVote });
-      else if (myVote == null && self.voted) {/* eigene Stimme aus früherer Sitzung – nicht bekannt */}
-    }
-    if (first) updateConn();
-    updateConn();
-    render();
-  }
-
-  const actions = {
-    vote(v) {
-      if (!view || view.revealed) return;
-      myVote = myVote === v ? null : v;
-      net.send({ t: "vote", cid: CID, round: view.round, value: myVote });
-      render();
-    },
-    setRole(r) {
-      me.role = r === "observer" ? "observer" : "voter";
-      store.set("sr-role", me.role, true); store.set("sr-guest-" + code, { name: me.name, role: me.role });
-      if (me.role === "observer") myVote = null;
-      hello(true);
-    },
-    reveal() {}, newRound() {}, removePerson() {}, setHostVotes() {},
-  };
-
-  mountRoom(code, false, actions);
-  $("#eyebrow").textContent = "Verbinde mit der Session…";
-  $("#curTitle").textContent = "Einen Moment…"; $("#curTitle").className = "placeholder";
-  $("#table").innerHTML = `<div class="empty">Warte auf die Moderation…</div>`;
-
-  const net = guestTransport(code, onHost, st => { tStatus = st; if (st === "open") hello(true); updateConn(); });
-  setInterval(() => { hello(!view || now() - lastState > 6000); updateConn(); }, 4000);
-  addEventListener("pagehide", () => net.send({ t: "bye", cid: CID }));
-}
-
 /* ================= Start ================= */
-const code = clean(params.get("s"), 6).toUpperCase().replace(/[^A-Z0-9]/g, "");
-if (code.length === 6) {
-  const hostState = store.get("sr-host-" + code);
-  const guest = store.get("sr-guest-" + code);
-  if (hostState && hostState.hostCid === CID) startHost(code, hostState.people?.[CID]?.name || savedName() || "Moderation", hostState);
-  else if (guest && guest.name) startGuest(code, guest.name, guest.role);
-  else showJoin(code);
-} else showStart();
-})();
+const code0 = clean(params.get("s"), 6).toUpperCase().replace(/[^A-Z0-9]/g, "");
+if (code0.length === 6) openSession(code0);
+else showStart();
+db().catch(() => {}); // Verbindung schon vorbereiten
 </script>
 </body>
 </html>
