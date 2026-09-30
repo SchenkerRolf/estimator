@@ -4,151 +4,176 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Schätzrunde</title>
-<meta name="description" content="Schlankes Schätz-Tool für Refinements und Sprint Plannings. Kein Login, nichts wird gespeichert.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='16' height='22' rx='3' fill='%235fb3a1'/%3E%3Crect x='12' y='3' width='16' height='22' rx='3' fill='%232f6f62'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta name="description" content="Schlankes Schätz-Tool für Refinements und Sprint Plannings. Kein Login.">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='16' height='22' fill='%233431DE'/%3E%3Crect x='12' y='3' width='16' height='22' fill='%230F05A0'/%3E%3C/svg%3E">
+
+<!-- Designsystem Stadt Zürich (@oiz/stzh-components) -->
+<script>
+  // Muss vor dem Komponenten-Bundle stehen: Pfade für Icons und Übersetzungen
+  window.stzhComponents = {
+    pathMedia: "https://cdn.jsdelivr.net/npm/@oiz/stzh-components@4.16.0/dist/stzh-components/assets/media",
+    pathTranslations: "https://cdn.jsdelivr.net/npm/@oiz/stzh-components@4.16.0/dist/stzh-components/assets/i18n",
+  };
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@oiz/stzh-components@4.16.0/dist/stzh-components/stzh-components.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@oiz/stzh-components@4.16.0/dist/stzh-components/assets/fonts.css">
+<script type="module" src="https://cdn.jsdelivr.net/npm/@oiz/stzh-components@4.16.0/dist/stzh-components/stzh-components.esm.js"></script>
+
 <style>
+/* Eigene Styles bauen ausschliesslich auf den Tokens des Designsystems auf. */
 :root{
-  --bg:#f6f5f2; --surface:#ffffff; --surface-2:#f0eee9; --text:#1d1c1a; --muted:#6b6862;
-  --border:#e3e0d9; --accent:#2f6f62; --accent-2:#3f8a7a; --accent-ink:#ffffff; --accent-soft:#e2efeb;
-  --low:#2f62b8; --low-soft:#e3ebf8; --high:#b8501a; --high-soft:#fbe9dd;
-  --ok:#2e7d52; --warn:#9a6a12; --danger:#b3261e;
-  --shadow:0 1px 2px rgba(20,18,15,.05),0 6px 20px rgba(20,18,15,.05);
-  --radius:14px;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#141413; --surface:#1d1c1a; --surface-2:#262522; --text:#ecebe6; --muted:#a19d94;
-    --border:#34322e; --accent:#5fb3a1; --accent-2:#78c4b3; --accent-ink:#0e1a17; --accent-soft:#1f3530;
-    --low:#86abee; --low-soft:#1c2940; --high:#f09a64; --high-soft:#3b2619;
-    --ok:#6cc596; --warn:#e0b25a; --danger:#f08a82;
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
-  }
+  --bg: var(--stzh-color-white, #fff);
+  --panel: var(--stzh-color-grey10, #f4f4f4);
+  --text: var(--stzh-color-black, #000);
+  --muted: var(--stzh-color-grey80, #606060);
+  --line: var(--stzh-color-grey30, #d2d2d2);
+  --primary: var(--stzh-color-primary, #0F05A0);
+  --primary-60: var(--stzh-color-midnightblue60, #3431DE);
+  --primary-10: var(--stzh-color-midnightblue10, #EFF5FF);
+  --low: var(--stzh-color-cobaltblue70, #002F96);
+  --low-bg: var(--stzh-color-cobaltblue10, #E6F7FF);
+  --low-line: var(--stzh-color-cobaltblue60, #0353DC);
+  --high: var(--stzh-color-orange70, #B23A01);
+  --high-bg: var(--stzh-color-orange10, #FEF5EA);
+  --high-line: var(--stzh-color-orange60, #EB5E00);
+  /* Diagramm: ordinale Rampe aus midnightblue 40–80 (validiert), Sonderkarten in coolgrey */
+  --v-05: var(--stzh-color-midnightblue40, #6496FF);
+  --v-1:  var(--stzh-color-midnightblue50, #3D6BFF);
+  --v-2:  var(--stzh-color-midnightblue60, #3431DE);
+  --v-3:  var(--stzh-color-midnightblue70, #0F05A0);
+  --v-5:  var(--stzh-color-midnightblue80, #070066);
+  --v-q:  var(--stzh-color-coolgrey40, #8DAFBC);
+  --v-c:  var(--stzh-color-coolgrey60, #5F7A83);
+  --space-xs: var(--stzh-space-xsmall, .5rem);
+  --space-s: var(--stzh-space-small, .75rem);
+  --space-m: var(--stzh-space-medium, 1rem);
+  --space-l: var(--stzh-space-xlarge, 1.5rem);
+  --space-xl: var(--stzh-space-xxlarge, 2rem);
+  --f-regular: var(--stzh-font-family-regular, "Helvetica Neue", Helvetica, Arial, sans-serif);
+  --f-medium: var(--stzh-font-family-medium, "Helvetica Neue", Helvetica, Arial, sans-serif);
+  --f-heavy: var(--stzh-font-family-heavy, "Helvetica Neue", Helvetica, Arial, sans-serif);
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
-button,input,textarea{font:inherit;color:inherit}
-button{cursor:pointer}
-button:disabled{cursor:not-allowed}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-
-/* ---------- Buttons & inputs ---------- */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:8px 14px;font-weight:500;transition:background .15s,border-color .15s,transform .05s}
-.btn:hover:not(:disabled){background:var(--surface-2)}
-.btn:active:not(:disabled){transform:translateY(1px)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.btn.primary:hover:not(:disabled){background:var(--accent-2);border-color:var(--accent-2)}
-.btn.ghost{border-color:transparent;background:transparent}
-.btn.ghost:hover:not(:disabled){background:var(--surface-2)}
-.btn.small{padding:5px 10px;font-size:13px;border-radius:8px}
-.btn:disabled{opacity:.45}
-.input{width:100%;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:10px 12px;outline:none;transition:border-color .15s}
-.input:focus{border-color:var(--accent)}
-textarea.input{resize:vertical;min-height:44px}
-label.field{display:block;font-size:13px;font-weight:500;color:var(--muted);margin:0 0 6px}
-.seg{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px}
-.seg button{border:0;background:transparent;padding:6px 12px;border-radius:8px;font-weight:500;color:var(--muted)}
-.seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
-
-/* ---------- Entry screens ---------- */
-.entry{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
-.entry-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);padding:28px}
-.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:-.01em}
-.logo svg{flex:none}
-.entry h1{font-size:24px;letter-spacing:-.02em;margin:18px 0 4px}
-.entry p.lead{color:var(--muted);margin:0 0 22px}
-.stack{display:flex;flex-direction:column;gap:14px}
-.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;margin:22px 0}
-.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border)}
-.row{display:flex;gap:8px}
-.row>.input{flex:1}
-.err{color:var(--danger);font-size:13px;min-height:1em}
-
-/* ---------- Room ---------- */
-.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px max(16px,calc((100vw - 860px)/2 + 16px));background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
-.session{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;letter-spacing:.08em;background:var(--surface-2);border-radius:8px;padding:4px 8px;font-size:13px}
-.conn{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);white-space:nowrap}
-.conn::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--warn)}
-.conn.ok::before{background:var(--ok)}
-.conn.bad::before{background:var(--danger)}
-.layout{max-width:860px;margin:0 auto;padding:20px 16px 40px}
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
-.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px;font-weight:600}
-.stage{display:flex;flex-direction:column;gap:16px;min-width:0}
-
-.current{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.current h1{font-size:22px;line-height:1.3;letter-spacing:-.015em;margin:0}
-.current .eyebrow{font-size:13px;color:var(--muted);font-weight:500}
-
-.table-wrap{padding:22px 18px}
-.progress{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-.progress .count{font-weight:600}
-.bar{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-top:6px;width:180px;max-width:100%}
-.bar>i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
-.seats{display:flex;flex-wrap:wrap;gap:14px 10px;justify-content:center}
-.seat{width:86px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
-.seat.off{opacity:.4}
-.pcard{width:54px;height:76px;border-radius:10px;display:grid;place-items:center;font-weight:700;font-size:22px;border:2px dashed var(--border);background:transparent;color:var(--muted)}
-.pcard.down{border:2px solid var(--accent);background:repeating-linear-gradient(135deg,var(--accent) 0 6px,var(--accent-2) 6px 12px);box-shadow:var(--shadow)}
-.pcard.up{border:2px solid var(--border);background:var(--surface);color:var(--text);box-shadow:var(--shadow);animation:flip .35s ease-out}
-.pcard.none{font-size:15px}
-.seat.low .pcard.up{border-color:var(--low);background:var(--low-soft);color:var(--low)}
-.seat.high .pcard.up{border-color:var(--high);background:var(--high-soft);color:var(--high)}
-@keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
-.seat .nm{font-size:13px;font-weight:500;max-width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.seat .tag{font-size:11px;font-weight:600;border-radius:99px;padding:1px 7px;line-height:1.5}
-.seat.low .tag{background:var(--low-soft);color:var(--low)}
-.seat.high .tag{background:var(--high-soft);color:var(--high)}
-.seat .sub{font-size:11px;color:var(--muted)}
-.observers{margin-top:18px;font-size:13px;color:var(--muted);text-align:center}
-.empty{color:var(--muted);text-align:center;padding:10px 0}
-
-.result{display:flex;flex-direction:column;gap:12px}
-.result .big{font-size:20px;font-weight:600;letter-spacing:-.01em}
-.spread{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media (max-width:520px){.spread{grid-template-columns:1fr}}
-.spread>div{border-radius:12px;padding:12px 14px}
-.spread .lo{background:var(--low-soft);color:var(--low)}
-.spread .hi{background:var(--high-soft);color:var(--high)}
-.spread .k{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;opacity:.85}
-.spread .v{font-size:20px;font-weight:700}
-.spread .who{font-size:13px;font-weight:500;overflow-wrap:anywhere}
-.hint{color:var(--muted);font-size:14px;margin:0}
-.dist{display:flex;gap:6px;flex-wrap:wrap}
-.chip{font-size:13px;background:var(--surface-2);border-radius:99px;padding:3px 10px}
-.chip b{font-weight:700}
-.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.actions .lbl{font-size:13px;color:var(--muted);margin-right:2px}
-
-.deck-wrap{position:sticky;bottom:0;z-index:4;padding:12px 0 calc(12px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent)}
-.deck{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-.dcard{width:58px;height:82px;border-radius:12px;border:2px solid var(--border);background:var(--surface);font-weight:700;font-size:22px;box-shadow:var(--shadow);transition:transform .15s,border-color .15s,background .15s}
-.dcard:hover:not(:disabled){transform:translateY(-4px);border-color:var(--accent)}
-.dcard[aria-pressed="true"]{transform:translateY(-10px);background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.dcard:disabled{opacity:.5}
-@media (max-width:420px){.dcard{width:44px;height:64px;font-size:18px;border-radius:10px}.deck{gap:6px}}
-.deck-note{text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
-
-.me{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.me .who{font-weight:600}
-.me .note{flex-basis:100%;margin:0}
-.check{display:flex;align-items:center;gap:10px;font-weight:500}
-.check input{width:18px;height:18px;accent-color:var(--accent)}
+body{background:var(--bg);color:var(--text);font-family:var(--f-regular);font-size:1rem;line-height:1.5;min-height:100vh}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--stzh-flyingfocus-color, #0353DC);outline-offset:2px}
 .muted{color:var(--muted)}
-.small{font-size:13px}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:.2s;z-index:20}
+.small{font-size:.875rem}
+h1,h2{font-family:var(--f-heavy);font-weight:normal;margin:0;letter-spacing:-.01em}
+
+/* ---------- App-Leiste ---------- */
+.appbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.appbar-in{max-width:880px;margin:0 auto;padding:var(--space-s) 16px;display:flex;align-items:center;justify-content:space-between;gap:var(--space-s);flex-wrap:wrap}
+.brand{font-family:var(--f-heavy);font-size:1.375rem;color:var(--primary);text-decoration:none;display:flex;align-items:center;gap:.625rem}
+.brand i{width:14px;height:22px;background:var(--primary);display:inline-block;box-shadow:6px -4px 0 var(--primary-60)}
+.session{display:flex;align-items:center;gap:var(--space-s);flex-wrap:wrap}
+.code{font-family:var(--f-medium);letter-spacing:.12em;background:var(--primary-10);color:var(--primary);padding:.125rem .5rem}
+
+/* ---------- Einstieg ---------- */
+.entry{min-height:calc(100vh - 60px);display:grid;place-items:start center;padding:var(--space-xl) 16px}
+.entry-card{width:100%;max-width:440px}
+.entry h1{font-size:2rem;line-height:1.15;color:var(--primary);margin-bottom:var(--space-xs)}
+.entry .lead{font-size:1.125rem;margin:0 0 var(--space-l)}
+.stack{display:flex;flex-direction:column;gap:var(--space-m)}
+.divider{display:flex;align-items:center;gap:var(--space-s);color:var(--muted);font-size:.875rem;margin:var(--space-xl) 0 var(--space-m)}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.err{color:var(--stzh-color-error60, #DC030E);font-size:.875rem;min-height:1.3em}
+.loading{display:flex;justify-content:center;padding:var(--space-xl) 0}
+
+/* ---------- Raum ---------- */
+.layout{max-width:880px;margin:0 auto;padding:var(--space-l) 16px var(--space-xl);display:flex;flex-direction:column;gap:var(--space-m)}
+.panel{background:var(--panel);padding:var(--space-l)}
+.current{display:flex;align-items:center;justify-content:space-between;gap:var(--space-m);flex-wrap:wrap}
+.current .eyebrow{font-family:var(--f-medium);font-size:.875rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.current h1{font-size:2rem;color:var(--primary);line-height:1.15}
+.me{display:flex;align-items:center;gap:var(--space-m);flex-wrap:wrap}
+.me .who{font-family:var(--f-medium)}
+
+.progress{display:flex;align-items:center;justify-content:space-between;gap:var(--space-s);flex-wrap:wrap;margin-bottom:var(--space-l)}
+.progress .count{font-family:var(--f-medium);font-size:1.125rem}
+.bar{height:4px;background:var(--line);margin-top:.375rem;width:200px;max-width:100%}
+.bar>i{display:block;height:100%;background:var(--primary);transition:width .3s}
+.actions{display:flex;gap:var(--space-xs);flex-wrap:wrap;align-items:center}
+.seats{display:flex;flex-wrap:wrap;gap:var(--space-m) var(--space-s);justify-content:center}
+.seat{width:92px;display:flex;flex-direction:column;align-items:center;gap:.375rem;text-align:center}
+.seat.off{opacity:.45}
+.pcard{width:56px;height:78px;display:grid;place-items:center;font-family:var(--f-heavy);font-size:1.5rem;border:2px dashed var(--stzh-color-grey50, #aaa);background:transparent;color:var(--muted)}
+.pcard.down{border:2px solid var(--primary);background:repeating-linear-gradient(135deg,var(--primary) 0 6px,var(--primary-60) 6px 12px)}
+.pcard.up{border:2px solid var(--text);background:var(--bg);color:var(--text);animation:flip .35s ease-out}
+.pcard.none{font-size:1rem}
+.seat.low .pcard.up{border-color:var(--low-line);background:var(--low-bg);color:var(--low)}
+.seat.high .pcard.up{border-color:var(--high-line);background:var(--high-bg);color:var(--high)}
+@keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
+@media (prefers-reduced-motion: reduce){.pcard.up{animation:none}}
+.seat .nm{font-family:var(--f-medium);font-size:.875rem;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat .tag{font-family:var(--f-medium);font-size:.75rem;padding:0 .5rem;line-height:1.5}
+.seat.low .tag{background:var(--low-bg);color:var(--low)}
+.seat.high .tag{background:var(--high-bg);color:var(--high)}
+.seat .sub{font-size:.75rem;color:var(--muted)}
+.linkbtn{border:0;background:none;padding:0;color:var(--stzh-link-color, #0F05A0);text-decoration:underline;font-size:.75rem}
+.observers{margin-top:var(--space-l);font-size:.875rem;color:var(--muted);text-align:center}
+.empty{color:var(--muted);text-align:center;padding:var(--space-s) 0}
+
+.result{display:flex;flex-direction:column;gap:var(--space-m)}
+.result .big{font-family:var(--f-heavy);font-size:1.5rem;color:var(--primary)}
+.spread{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-s)}
+@media (max-width:520px){.spread{grid-template-columns:1fr}}
+.spread>div{padding:var(--space-s) var(--space-m);border-left:4px solid}
+.spread .lo{background:var(--low-bg);color:var(--low);border-color:var(--low-line)}
+.spread .hi{background:var(--high-bg);color:var(--high);border-color:var(--high-line)}
+.spread .k{font-family:var(--f-medium);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em}
+.spread .v{font-family:var(--f-heavy);font-size:1.5rem}
+.spread .who{font-size:.875rem;overflow-wrap:anywhere}
+.hint{margin:0}
+
+.chart{display:flex;align-items:center;gap:var(--space-l);flex-wrap:wrap;background:var(--bg);padding:var(--space-m)}
+.donut{flex:none;width:168px;height:168px;position:relative}
+.donut svg{width:100%;height:100%;display:block;overflow:visible;pointer-events:none}
+.donut circle.seg{pointer-events:stroke;fill:none;stroke-width:30;transition:stroke-width .12s}
+.donut circle.seg:hover,.donut circle.seg.hl{stroke-width:36}
+.donut .mid{position:absolute;inset:0;display:grid;place-items:center;text-align:center;pointer-events:none}
+.donut .mid b{display:block;font-family:var(--f-heavy);font-weight:normal;font-size:1.75rem;line-height:1.1}
+.donut .mid span{font-size:.75rem;color:var(--muted)}
+.legend{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:14px max-content 3.5ch 5ch;justify-content:start;gap:.5rem .875rem;align-items:center;font-size:.9375rem}
+.legend li{display:contents}
+.legend .sw{width:14px;height:14px}
+.legend .lv{font-family:var(--f-medium)}
+.legend .lc,.legend .lp{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.legend li.hl>*{color:var(--text)}
+.legend li.hl .lv{text-decoration:underline;text-underline-offset:3px}
+.tip{position:fixed;z-index:30;pointer-events:none;background:var(--text);color:var(--bg);font-size:.875rem;padding:.375rem .625rem;white-space:nowrap;opacity:0;transform:translate(-50%,calc(-100% - 10px));transition:opacity .1s}
+.tip.show{opacity:1}
+
+.deck-wrap{position:sticky;bottom:0;z-index:4;padding:var(--space-s) 0 calc(var(--space-s) + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 75%,transparent)}
+.deck{display:flex;gap:.625rem;justify-content:center;flex-wrap:wrap}
+.dcard{width:60px;height:84px;border:2px solid var(--primary);background:var(--bg);color:var(--primary);font-family:var(--f-heavy);font-size:1.5rem;transition:transform .15s,background .15s,color .15s}
+.dcard:hover:not(:disabled){background:var(--primary-10);transform:translateY(-4px)}
+.dcard[aria-pressed="true"]{transform:translateY(-10px);background:var(--primary);color:var(--stzh-color-white, #fff)}
+.dcard:disabled{opacity:.4;cursor:not-allowed}
+@media (max-width:420px){.dcard{width:44px;height:64px;font-size:1.125rem}.deck{gap:.375rem}}
+.deck-wrap.done{position:static;background:none}
+@media (max-width:520px){.appbar{position:static}}
+.deck-note{text-align:center;font-size:.875rem;color:var(--muted);margin-top:var(--space-xs)}
+
+/* Fallback-Toast, falls die Komponenten nicht laden */
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:.625rem 1rem;font-size:.9375rem;opacity:0;pointer-events:none;transition:.2s;z-index:20}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.banner{background:var(--high-soft);color:var(--high);border-radius:12px;padding:10px 14px;font-size:14px;font-weight:500}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<stzh-toastbar id="toastbar" hide-after="4" max="3"></stzh-toastbar>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="tip" class="tip" role="tooltip"></div>
+<stzh-dialog id="confirm" heading="Bestätigen" close-on-escape-key>
+  <stzh-text><p id="confirmText"></p></stzh-text>
+  <stzh-actions slot="actions" variant="dialog">
+    <stzh-button slot="primary" id="confirmOk">OK</stzh-button>
+    <stzh-button slot="secondary" variant="secondary" id="confirmCancel">Abbrechen</stzh-button>
+  </stzh-actions>
+</stzh-dialog>
 
 <script type="module">
 /* =====================================================================
@@ -180,26 +205,13 @@ const linkFor = code => "?" + new URLSearchParams(code ? { s: code, ...KEEP } : 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const clean = (s, max) => String(s ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, max);
-function genCode() {
-  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from(crypto.getRandomValues(new Uint8Array(6)), b => A[b % A.length]).join("");
-}
+const genCode = () => String(100 + crypto.getRandomValues(new Uint32Array(1))[0] % 900); // 100–999
+const parseCode = s => { const c = String(s ?? "").replace(/\D/g, ""); return /^[1-9][0-9]{2}$/.test(c) ? c : null; };
 const fmt = n => (Math.round(n * 10) / 10).toString();
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-let toastT;
-function toast(msg) {
-  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
-  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2200);
-}
-function fail(e, what) {
-  console.error(what, e);
-  const denied = String(e && (e.code || e.message) || "").toLowerCase().includes("permission");
-  toast(denied ? `${what}: nicht erlaubt` : `${what} fehlgeschlagen. Verbindung prüfen.`);
-}
-const LOGO = `<svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="16" height="22" rx="3" fill="var(--accent-2)"/><rect x="12" y="3" width="16" height="22" rx="3" fill="var(--accent)"/></svg>`;
 const P = {
   meta: c => `sessions/${c}/meta`,
   people: c => `sessions/${c}/people`,
@@ -207,6 +219,124 @@ const P = {
   votes: c => `sessions/${c}/votes`,
   vote: (c, u) => `sessions/${c}/votes/${u}`,
 };
+
+/* ================= UI-Helfer (Designsystem Stadt Zürich) ================= */
+let toastT;
+function toast(msg, type = "info") {
+  const tb = $("#toastbar");
+  if (customElements.get("stzh-toastbar") && tb && typeof tb.toast === "function") { tb.toast(msg, { type }); return; }
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");       // Fallback ohne Komponenten
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600);
+}
+function fail(e, what) {
+  console.error(what, e);
+  const denied = String(e && (e.code || e.message) || "").toLowerCase().includes("permission");
+  toast(denied ? `${what}: nicht erlaubt` : `${what} fehlgeschlagen. Verbindung prüfen.`, "error");
+}
+// Bestätigungsdialog (stzh-dialog), Fallback: window.confirm
+function confirmDialog(title, text, okLabel) {
+  const dlg = $("#confirm");
+  if (!customElements.get("stzh-dialog") || typeof dlg.show !== "function") return Promise.resolve(confirm(`${title}\n\n${text}`));
+  dlg.heading = title; $("#confirmText").textContent = text; $("#confirmOk").textContent = okLabel;
+  return new Promise(res => {
+    let done = false;
+    const finish = v => { if (done) return; done = true; cleanup(); dlg.hide(); res(v); };
+    const ok = () => finish(true), no = () => finish(false), closed = () => finish(false);
+    const cleanup = () => { $("#confirmOk").removeEventListener("click", ok); $("#confirmCancel").removeEventListener("click", no); dlg.removeEventListener("stzhClose", closed); };
+    $("#confirmOk").addEventListener("click", ok); $("#confirmCancel").addEventListener("click", no); dlg.addEventListener("stzhClose", closed);
+    dlg.show();
+  });
+}
+// Nur neu zeichnen, wenn sich der Inhalt geändert hat (Web Components nicht unnötig neu erzeugen)
+function setHTML(el, html) { if (el && el.__html !== html) { el.__html = html; el.innerHTML = html; } }
+const valueOf = el => (el ? String(el.value ?? "") : "");
+const BRAND = `<a class="brand" href="${esc(location.pathname + (USE_LOCAL ? "?transport=local" : ""))}"><i aria-hidden="true"></i>Schätzrunde</a>`;
+const appbar = right => `<header class="appbar"><div class="appbar-in">${BRAND}<div class="session">${right || ""}</div></div></header>`;
+
+/* ================= Einstiegsbildschirme ================= */
+const app = $("#app");
+const savedName = () => store.get("sr-name") || "";
+
+function showLoading(text) {
+  app.onclick = app.onchange = null;
+  app.innerHTML = `${appbar()}<main class="entry"><div class="entry-card"><div class="loading"><stzh-loader label="${esc(text)}"></stzh-loader></div></div></main>`;
+}
+function showError(text) {
+  app.innerHTML = `${appbar()}<main class="entry"><div class="entry-card stack">
+    <h1>Keine Verbindung</h1>
+    <stzh-message type="error" hide-close description="${esc(text)}"></stzh-message>
+    <div><stzh-button id="retry" icon="reload">Nochmals versuchen</stzh-button></div></div></main>`;
+  $("#retry").addEventListener("click", () => location.reload());
+}
+
+function showStart(msg) {
+  app.onclick = app.onchange = null;
+  history.replaceState(null, "", location.pathname + (USE_LOCAL ? linkFor() : ""));
+  app.innerHTML = `${appbar()}
+  <main class="entry"><div class="entry-card">
+    <h1>Gemeinsam schätzen</h1>
+    <p class="lead">Kein Login. Starte eine Session und teile den Code oder Link mit deinem Team.</p>
+    ${msg ? `<stzh-message type="info" hide-close description="${esc(msg)}" style="display:block;margin-bottom:var(--space-l)"></stzh-message>` : ""}
+    <form id="fStart" class="stack" novalidate>
+      <stzh-input id="nStart" label="Dein Name" maxlength="24" required value="${esc(savedName())}" autocomplete="nickname"></stzh-input>
+      <div><stzh-button type="submit" id="bStart">Neue Session starten</stzh-button></div>
+      <div class="err" id="eStart" role="alert"></div>
+    </form>
+    <div class="divider">oder beitreten</div>
+    <form id="fJoin" class="stack" novalidate>
+      <stzh-input id="cJoin" label="Session-Code" description="3 Ziffern, z. B. 427" maxlength="3" inputmode="numeric" required no-autocomplete></stzh-input>
+      <div><stzh-button type="submit" variant="secondary">Beitreten</stzh-button></div>
+    </form>
+  </div></main>`;
+  $("#fStart").onsubmit = async e => {
+    e.preventDefault();
+    const name = clean(valueOf($("#nStart")), 24);
+    if (!name) { $("#eStart").textContent = "Bitte gib deinen Namen ein."; return; }
+    store.set("sr-name", name);
+    const b = $("#bStart"); b.disabled = true; $("#eStart").textContent = "";
+    try { const code = await createSession(name); openSession(code); }
+    catch (err) { console.error(err); $("#eStart").textContent = "Session konnte nicht erstellt werden. Verbindung prüfen und nochmals versuchen."; b.disabled = false; }
+  };
+  $("#fJoin").onsubmit = e => {
+    e.preventDefault();
+    const code = parseCode(valueOf($("#cJoin")));
+    if (code) openSession(code); else toast("Der Code besteht aus 3 Ziffern.", "warning");
+  };
+}
+
+function showJoin(code) {
+  let role = store.get("sr-role") === "observer" ? "observer" : "voter";
+  app.onclick = app.onchange = null;
+  app.innerHTML = `${appbar(`<span class="code" title="Session-Code">${esc(code)}</span>`)}
+  <main class="entry"><div class="entry-card">
+    <h1>Session ${esc(code)}</h1>
+    <p class="lead">Gib deinen Namen ein, dann bist du dabei.</p>
+    <form id="fName" class="stack" novalidate>
+      <stzh-input id="nJoin" label="Dein Name" maxlength="24" required value="${esc(savedName())}" autocomplete="nickname"></stzh-input>
+      <stzh-radiogroup id="rJoin" legend="Ich möchte" direction="horizontal" value="${role}">
+        <stzh-radio value="voter" label="Mitschätzen"${role === "voter" ? " checked" : ""}></stzh-radio>
+        <stzh-radio value="observer" label="Nur zuschauen"${role === "observer" ? " checked" : ""}></stzh-radio>
+      </stzh-radiogroup>
+      <div><stzh-button type="submit" id="bJoin">Beitreten</stzh-button></div>
+      <div class="err" id="eJoin" role="alert"></div>
+      <div><stzh-link href="${esc(location.pathname + (USE_LOCAL ? linkFor() : ""))}">Andere Session oder neue starten</stzh-link></div>
+    </form>
+  </div></main>`;
+  $("#rJoin").addEventListener("stzhChange", e => { if (e.detail && e.detail.value) role = e.detail.value === "observer" ? "observer" : "voter"; });
+  $("#fName").onsubmit = async e => {
+    e.preventDefault();
+    const name = clean(valueOf($("#nJoin")), 24);
+    if (!name) { $("#eJoin").textContent = "Bitte gib deinen Namen ein."; return; }
+    const rv = valueOf($("#rJoin")); if (rv) role = rv === "observer" ? "observer" : "voter";
+    store.set("sr-name", name); store.set("sr-role", role);
+    const b = $("#bJoin"); b.disabled = true;
+    try {
+      const d = await db();
+      await d.update({ [P.person(code, d.uid)]: { name, role, online: true, joinedAt: d.TS } });
+      enterRoom(code);
+    } catch (err) { console.error(err); $("#eJoin").textContent = "Beitreten fehlgeschlagen. Existiert die Session noch?"; b.disabled = false; }
+  };
+}
 
 /* ================= Datenbank-Adapter =================
    Einheitliche Schnittstelle, damit die App-Logik nicht von Firebase abhängt.
@@ -293,106 +423,26 @@ function analyze(people) {
   };
 }
 
-/* ================= Einstiegsbildschirme ================= */
-const app = $("#app");
-const savedName = () => store.get("sr-name") || "";
-
-function showLoading(text) {
-  app.innerHTML = `<div class="entry"><div class="entry-card"><div class="logo">${LOGO} Schätzrunde</div><p class="lead" style="margin:18px 0 0">${esc(text)}</p></div></div>`;
-}
-function showError(text) {
-  app.innerHTML = `<div class="entry"><div class="entry-card"><div class="logo">${LOGO} Schätzrunde</div>
-    <h1>Keine Verbindung</h1><p class="lead">${esc(text)}</p>
-    <button class="btn primary" onclick="location.reload()">Nochmals versuchen</button></div></div>`;
-}
-
-function showStart(msg) {
-  app.onclick = app.onchange = null;
-  history.replaceState(null, "", location.pathname + (USE_LOCAL ? linkFor() : ""));
-  app.innerHTML = `
-  <div class="entry"><div class="entry-card">
-    <div class="logo">${LOGO} Schätzrunde</div>
-    <h1>Gemeinsam schätzen</h1>
-    <p class="lead">Kein Login. Starte eine Session und teile den Link mit deinem Team.</p>
-    ${msg ? `<div class="banner" style="margin-bottom:16px">${esc(msg)}</div>` : ""}
-    <form id="fStart" class="stack">
-      <div><label class="field" for="nStart">Dein Name</label>
-      <input id="nStart" class="input" maxlength="24" autocomplete="nickname" required value="${esc(savedName())}"></div>
-      <button class="btn primary" type="submit" id="bStart">Neue Session starten</button>
-      <div class="err" id="eStart"></div>
-    </form>
-    <div class="divider">oder beitreten</div>
-    <form id="fJoin" class="stack">
-      <div><label class="field" for="cJoin">Session-Code</label>
-      <div class="row"><input id="cJoin" class="input" maxlength="6" placeholder="z. B. K7M2QX" autocapitalize="characters" autocomplete="off" required style="text-transform:uppercase;letter-spacing:.08em">
-      <button class="btn" type="submit">Weiter</button></div></div>
-    </form>
-  </div></div>`;
-  $("#fStart").onsubmit = async e => {
-    e.preventDefault();
-    const name = clean($("#nStart").value, 24); if (!name) return;
-    store.set("sr-name", name);
-    $("#bStart").disabled = true; $("#bStart").textContent = "Wird erstellt…";
-    try { const code = await createSession(name); openSession(code); }
-    catch (err) { console.error(err); $("#eStart").textContent = "Session konnte nicht erstellt werden. Verbindung prüfen und nochmals versuchen."; $("#bStart").disabled = false; $("#bStart").textContent = "Neue Session starten"; }
-  };
-  $("#fJoin").onsubmit = e => {
-    e.preventDefault();
-    const code = clean($("#cJoin").value, 6).toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (code.length === 6) openSession(code);
-  };
-}
-
-function showJoin(code) {
-  let role = store.get("sr-role") === "observer" ? "observer" : "voter";
-  app.innerHTML = `
-  <div class="entry"><div class="entry-card">
-    <div class="logo">${LOGO} Schätzrunde</div>
-    <h1>Session <span class="code">${esc(code)}</span></h1>
-    <p class="lead">Gib deinen Namen ein, dann bist du dabei.</p>
-    <form id="fName" class="stack">
-      <div><label class="field" for="nJoin">Dein Name</label>
-      <input id="nJoin" class="input" maxlength="24" autocomplete="nickname" required value="${esc(savedName())}"></div>
-      <div><span class="field">Ich möchte</span>
-      <div class="seg" role="group" aria-label="Rolle">
-        <button type="button" data-role="voter">Mitschätzen</button>
-        <button type="button" data-role="observer">Nur zuschauen</button>
-      </div></div>
-      <button class="btn primary" type="submit" id="bJoin">Beitreten</button>
-      <div class="err" id="eJoin"></div>
-      <a class="small muted" href="${esc(location.pathname + (USE_LOCAL ? linkFor() : ""))}">Andere Session / neue starten</a>
-    </form>
-  </div></div>`;
-  const seg = () => app.querySelectorAll("[data-role]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.role === role)));
-  app.querySelectorAll("[data-role]").forEach(b => b.onclick = () => { role = b.dataset.role; seg(); });
-  seg();
-  $("#nJoin").focus();
-  $("#fName").onsubmit = async e => {
-    e.preventDefault();
-    const name = clean($("#nJoin").value, 24); if (!name) return;
-    store.set("sr-name", name); store.set("sr-role", role);
-    $("#bJoin").disabled = true;
-    try {
-      const d = await db();
-      await d.update({ [P.person(code, d.uid)]: { name, role, online: true, joinedAt: d.TS } });
-      enterRoom(code);
-    } catch (err) { console.error(err); $("#eJoin").textContent = "Beitreten fehlgeschlagen. Existiert die Session noch?"; $("#bJoin").disabled = false; }
-  };
-}
-
 /* ================= Session anlegen / öffnen ================= */
 async function createSession(name) {
   const d = await db();
-  for (let i = 0; i < 5; i++) {
+  await cleanupStale(); // alte, vergessene Sessions zuerst entfernen – gibt Codes frei
+  for (let i = 0; i < 40; i++) {
     const code = genCode();
-    if (await d.get(P.meta(code))) continue; // Code schon vergeben
-    await d.update({
-      [P.meta(code)]: { host: d.uid, round: 1, revealed: false, createdAt: d.TS, updatedAt: d.TS },
-      [P.person(code, d.uid)]: { name, role: "voter", online: true, joinedAt: d.TS },
-      [`index/${code}`]: d.TS,
-    });
-    cleanupStale(); // alte, vergessene Sessions im Hintergrund entfernen
-    return code;
+    const meta = await d.get(P.meta(code));
+    if (meta) {
+      // Code belegt. Ist die Session verwaist (> 12 h), darf sie weg.
+      if (!(meta.updatedAt < d.serverNow() - STALE_MS - 10 * 60 * 1000)) continue;
+      try { await d.update({ [`sessions/${code}`]: null, [`index/${code}`]: null }); } catch { continue; }
+    }
+    try {
+      await d.update({
+        [P.meta(code)]: { host: d.uid, round: 1, revealed: false, createdAt: d.TS, updatedAt: d.TS },
+        [P.person(code, d.uid)]: { name, role: "voter", online: true, joinedAt: d.TS },
+        [`index/${code}`]: d.TS,
+      });
+      return code;
+    } catch (e) { console.warn("Code", code, "nicht verfügbar", e); } // gleichzeitig vergeben → nächster Versuch
   }
   throw new Error("Kein freier Code gefunden");
 }
@@ -401,7 +451,7 @@ async function cleanupStale() {
   try {
     const d = await db();
     const codes = await d.staleCodes(d.serverNow() - STALE_MS - 10 * 60 * 1000);
-    for (const c of codes) await d.update({ [`sessions/${c}`]: null, [`index/${c}`]: null }).catch(() => {});
+    for (const c of codes.filter(parseCode)) await d.update({ [`sessions/${c}`]: null, [`index/${c}`]: null }).catch(() => {});
   } catch (e) { console.warn("Aufräumen übersprungen", e); }
 }
 
@@ -423,40 +473,42 @@ async function openSession(code) {
 let room = null; // aktueller Raum-Zustand
 
 function mountRoom(code, actions) {
-  app.innerHTML = `
-  <header class="top">
-    <div class="logo">${LOGO}<span>Schätzrunde</span></div>
-    <div class="session">
-      <span class="conn" id="conn">Verbinde…</span>
+  app.innerHTML = `${appbar(`
+      <span id="conn"></span>
       <span class="code" title="Session-Code">${esc(code)}</span>
-      <button class="btn small" id="copy">Link kopieren</button>
-    </div>
-  </header>
+      <stzh-button id="copy" variant="secondary" size="small" icon="copy">Link kopieren</stzh-button>`)}
   <main class="layout">
-    <section class="stage">
-      <div id="banner"></div>
-      <div class="panel current"><div><div class="eyebrow" id="eyebrow">Einen Moment…</div><h1 id="curTitle"></h1></div><div class="me" id="me"></div></div>
-      <div class="panel table-wrap" id="table"><div class="empty">Lade…</div></div>
-      <div id="result"></div>
-      <div class="deck-wrap" id="deckWrap"></div>
+    <div id="banner"></div>
+    <section class="panel current" aria-live="polite">
+      <div><div class="eyebrow" id="eyebrow">Einen Moment…</div><h1 id="curTitle"></h1></div>
+      <div class="me" id="me"></div>
     </section>
+    <section class="panel" id="table"><div class="loading"><stzh-loader label="Lade…" size="small"></stzh-loader></div></section>
+    <div id="result"></div>
+    <div class="deck-wrap" id="deckWrap"></div>
   </main>`;
-  $("#copy").onclick = async () => {
+  $("#copy").addEventListener("click", async () => {
     const url = location.origin + location.pathname + linkFor(code);
-    try { await navigator.clipboard.writeText(url); toast("Link kopiert"); }
+    try { await navigator.clipboard.writeText(url); toast("Link kopiert", "success"); }
     catch { prompt("Link zum Teilen:", url); }
-  };
+  });
   app.onclick = e => {
-    const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
-    const a = b.dataset.act, v = b.dataset.v;
-    if (actions[a]) actions[a](v);
+    const b = e.target.closest("[data-act]"); if (!b || b.disabled || b.hasAttribute("disabled")) return;
+    const a = b.dataset.act; if (a === "role") return; // Rollenwechsel läuft über stzhChange
+    if (actions[a]) actions[a](b.dataset.v);
   };
-  app.onchange = e => { if (e.target.id === "hostVotes") actions.role(e.target.checked ? "voter" : "observer"); };
+  roomActions = actions;
 }
+let roomActions = null;
+// Einmalig: Änderungen aus Designsystem-Komponenten (Radiogroup, Toggle) an die Raum-Aktionen weitergeben
+document.addEventListener("stzhChange", e => {
+  const t = e.target; if (!roomActions || !t.closest) return;
+  if (t.closest("#roleGroup") && e.detail && e.detail.value) roomActions.role(e.detail.value);
+  else if (t.closest("#hostVotes") && e.detail && typeof e.detail.checked === "boolean") roomActions.role(e.detail.checked ? "voter" : "observer");
+});
 
 function setConn(text, cls) {
-  const c = $("#conn"); if (!c) return;
-  c.textContent = text; c.className = "conn " + (cls || "");
+  setHTML($("#conn"), `<stzh-status type="${cls === "ok" ? "success" : "warning"}" label="${esc(text)}"></stzh-status>`);
 }
 
 async function enterRoom(code) {
@@ -546,10 +598,10 @@ async function enterRoom(code) {
     kick(cid) { d.update({ [P.person(code, cid)]: null }).catch(e => fail(e, "Entfernen")); },
     takeover() {
       d.update({ [P.meta(code) + "/host"]: uid, [P.meta(code) + "/updatedAt"]: d.TS, [`index/${code}`]: d.TS })
-        .then(() => toast("Du moderierst jetzt")).catch(e => fail(e, "Übernehmen"));
+        .then(() => toast("Du moderierst jetzt", "success")).catch(e => fail(e, "Übernehmen"));
     },
-    end() {
-      if (!confirm("Session für alle beenden? Alle Daten dieser Session werden gelöscht.")) return;
+    async end() {
+      if (!await confirmDialog("Session beenden?", "Die Session wird für alle beendet und alle Daten dieser Session werden gelöscht.", "Session beenden")) return;
       d.cancelOnDisconnect(P.person(code, uid)).catch(() => {});
       d.update({ [`sessions/${code}`]: null, [`index/${code}`]: null }).catch(e => fail(e, "Beenden"));
     },
@@ -585,6 +637,45 @@ async function enterRoom(code) {
   }, e => console.error(e)));
 }
 
+/* Kreisdiagramm (Donut) der Stimmen – Farbe folgt dem Wert, nie der Rangfolge */
+const VCOLOR = { "0.5": "--v-05", "1": "--v-1", "2": "--v-2", "3": "--v-3", "5": "--v-5", "?": "--v-q", "☕": "--v-c" };
+const VLABEL = { "?": "? (unklar)", "☕": "☕ (Pause)" };
+function donut(counts) {
+  const entries = SCALE.filter(k => counts[k]).map(k => [k, counts[k]]);
+  const total = entries.reduce((s, [, c]) => s + c, 0);
+  if (!total) return "";
+  const r = 60, C = 2 * Math.PI * r, gap = entries.length > 1 ? 2.5 : 0;
+  let acc = 0;
+  const segs = entries.map(([k, c]) => {
+    const len = c / total * C, dash = Math.max(len - gap, 0.8);
+    const pct = Math.round(c / total * 100);
+    const tip = `${VLABEL[k] || k}: ${c} Stimme${c === 1 ? "" : "n"} (${pct} %)`;
+    const el = `<circle class="seg" data-k="${esc(k)}" data-tip="${esc(tip)}" cx="84" cy="84" r="${r}" stroke="var(${VCOLOR[k]})"
+      stroke-dasharray="${dash.toFixed(2)} ${(C - dash).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 84 84)"></circle>`;
+    acc += len; return el;
+  }).join("");
+  const legend = entries.map(([k, c]) => `<li data-k="${esc(k)}"><span class="sw" style="background:var(${VCOLOR[k]})"></span><span class="lv">${esc(VLABEL[k] || k)}</span><span class="lc">${c}×</span><span class="lp">${Math.round(c / total * 100)} %</span></li>`).join("");
+  return `<div class="chart">
+    <div class="donut" role="img" aria-label="Verteilung der Stimmen: ${esc(entries.map(([k, c]) => `${k}: ${c}`).join(", "))}">
+      <svg viewBox="0 0 168 168">${segs}</svg>
+      <div class="mid"><div><b>${total}</b><span>Stimme${total === 1 ? "" : "n"}</span></div></div>
+    </div>
+    <ul class="legend">${legend}</ul>
+  </div>`;
+}
+// Hover: Tooltip am Segment, passende Legendenzeile hervorheben
+document.addEventListener("pointerover", e => {
+  const t = e.target.closest && e.target.closest("[data-tip], .legend li");
+  document.querySelectorAll(".chart .hl").forEach(x => x.classList.remove("hl"));
+  const tip = $("#tip");
+  if (!t) { tip.classList.remove("show"); return; }
+  const k = t.dataset.k;
+  document.querySelectorAll(`.chart [data-k="${CSS.escape(k)}"]`).forEach(x => x.classList.add("hl"));
+  const seg = document.querySelector(`.donut [data-k="${CSS.escape(k)}"]`);
+  if (seg) { tip.textContent = seg.dataset.tip; tip.classList.add("show"); }
+});
+document.addEventListener("pointermove", e => { const tip = $("#tip"); tip.style.left = e.clientX + "px"; tip.style.top = e.clientY + "px"; });
+
 /* view: { code, round, revealed, host, people[] }; me: { cid, myVote, connected } */
 function renderRoom(view, me) {
   const isHost = view.host === me.cid;
@@ -599,10 +690,11 @@ function renderRoom(view, me) {
   const A = view.revealed ? analyze(people) : null;
 
   /* Hinweis, wenn die Moderation weg ist */
-  $("#banner").innerHTML = (!isHost && (!hostP || !hostP.online))
-    ? `<div class="banner" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <span>Die Moderation ist offline. Jemand kann übernehmen.</span>
-        <button class="btn small" data-act="takeover">Moderation übernehmen</button></div>` : "";
+  setHTML($("#banner"), (!isHost && (!hostP || !hostP.online))
+    ? `<stzh-message type="warning" hide-close label="Die Moderation ist offline">
+        <p style="margin:0 0 .75rem">Jemand aus der Runde kann die Moderation übernehmen.</p>
+        <stzh-button size="small" data-act="takeover">Moderation übernehmen</stzh-button>
+      </stzh-message>` : "");
 
   $("#eyebrow").textContent = view.revealed ? "Aufgedeckt" : "Abstimmung läuft";
   $("#curTitle").textContent = "Runde " + view.round;
@@ -611,7 +703,7 @@ function renderRoom(view, me) {
   const spread = A && A.nums.length && !A.consensus;
   const lowSet = new Set(spread ? A.lows.map(p => p.cid) : []);
   const highSet = new Set(spread ? A.highs.map(p => p.cid) : []);
-  const kick = p => isHost && p.cid !== me.cid && !p.online ? ` · <button class="btn ghost small" style="padding:0 4px" data-act="kick" data-v="${esc(p.cid)}">entfernen</button>` : "";
+  const kick = p => isHost && p.cid !== me.cid && !p.online ? ` · <button class="linkbtn" data-act="kick" data-v="${esc(p.cid)}">entfernen</button>` : "";
   const seat = p => {
     const cls = ["seat", p.online ? "" : "off", lowSet.has(p.cid) ? "low" : "", highSet.has(p.cid) ? "high" : ""].join(" ");
     let card;
@@ -627,21 +719,20 @@ function renderRoom(view, me) {
     ? `<div><div class="count">Ergebnis</div><div class="muted small">${A.voted.length} Schätzung${A.voted.length === 1 ? "" : "en"}</div></div>`
     : `<div><div class="count">${votedCount} von ${onlineVoters.length} haben gewählt</div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
   const hostBtns = isHost ? (view.revealed
-      ? `<button class="btn" data-act="round">Neue Runde</button>`
-      : `<button class="btn ghost" data-act="round" title="Stimmen verwerfen und neu beginnen">Neu starten</button><button class="btn primary" data-act="reveal" ${votedCount ? "" : "disabled"}>Jetzt aufdecken</button>`) : "";
-  $("#table").innerHTML = `
+      ? `<stzh-button data-act="round" icon="reload">Neue Runde</stzh-button>`
+      : `<stzh-button variant="tertiary" data-act="round" icon="reset">Neu starten</stzh-button><stzh-button data-act="reveal" icon="view"${votedCount ? "" : " disabled"}>Jetzt aufdecken</stzh-button>`) : "";
+  setHTML($("#table"), `
     <div class="progress">${progress}<div class="actions">${hostBtns}</div></div>
-    ${voters.length ? `<div class="seats">${voters.map(seat).join("")}</div>` : `<div class="empty">Noch niemand schätzt mit. Teile den Link!</div>`}
-    ${observers.length ? `<div class="observers">Zuschauend: ${observers.map(p => esc(p.name) + (p.cid === me.cid ? " (du)" : "") + (p.cid === view.host ? " (Moderation)" : "") + (p.online ? "" : " (offline)") + kick(p)).join(", ")}</div>` : ""}`;
+    ${voters.length ? `<div class="seats">${voters.map(seat).join("")}</div>` : `<div class="empty">Noch niemand schätzt mit. Teile den Code!</div>`}
+    ${observers.length ? `<div class="observers">Zuschauend: ${observers.map(p => esc(p.name) + (p.cid === me.cid ? " (du)" : "") + (p.cid === view.host ? " (Moderation)" : "") + (p.online ? "" : " (offline)") + kick(p)).join(", ")}</div>` : ""}`);
 
   /* Ergebnis */
   let res = "";
   if (view.revealed) {
-    const specials = Object.entries(A.special).map(([k, c]) => `<span class="chip"><b>${c}×</b> ${esc(k)}</span>`).join("");
-    const dist = SCALE.filter(k => A.counts[k]).map(k => `<span class="chip"><b>${esc(k)}</b> · ${A.counts[k]}×</span>`).join("");
+    const chart = donut(A.counts);
     if (!A.voted.length) res = `<p class="hint">Niemand hat gewählt.</p>`;
-    else if (!A.nums.length) res = `<div class="big">Keine Zahlen-Schätzung</div><div class="dist">${specials}</div><p class="hint">Klärt die offenen Fragen und startet eine neue Runde.</p>`;
-    else if (A.consensus) res = `<div class="big">Einig: ${esc(A.nums[0].vote)} 🎉</div>${specials ? `<div class="dist">${specials}</div>` : ""}`;
+    else if (!A.nums.length) res = `<div class="big">Keine Zahlen-Schätzung</div><p class="hint">Klärt die offenen Fragen und startet eine neue Runde.</p>${chart}`;
+    else if (A.consensus) res = `<div class="big">Einig: ${esc(A.nums[0].vote)}</div>${chart}`;
     else {
       const names = arr => arr.map(p => esc(p.name)).join(", ");
       res = `<div class="spread">
@@ -649,37 +740,37 @@ function renderRoom(view, me) {
           <div class="hi"><div class="k">Höchster Wert</div><div class="v">${fmt(A.max)}</div><div class="who">${names(A.highs)}</div></div>
         </div>
         <p class="hint">Tiefster und höchster Wert erklären kurz ihre Sicht, danach stimmt ihr neu ab.</p>
-        <div class="dist">${dist}</div>`;
+        ${chart}`;
     }
-    res = `<div class="panel result">${res}</div>`;
+    res = `<section class="panel result" aria-live="polite">${res}</section>`;
   }
-  $("#result").innerHTML = res;
+  setHTML($("#result"), res);
 
   /* Karten-Deck */
   const dw = $("#deckWrap");
   if (iCanVote) {
-    dw.style.display = "";
-    dw.innerHTML = `<div class="deck" role="group" aria-label="Deine Schätzung">${SCALE.map(v =>
-      `<button class="dcard" data-act="vote" data-v="${esc(v)}" aria-pressed="${me.myVote === v}" ${view.revealed ? "disabled" : ""} title="${v === "?" ? "Unklar" : v === "☕" ? "Pause" : v}">${esc(v)}</button>`).join("")}</div>
-      <div class="deck-note">${view.revealed ? "Aufgedeckt. Warte auf die nächste Runde." : me.myVote != null ? "Gewählt. Nochmals tippen zum Zurücknehmen." : "Wähle deine Karte."}</div>`;
-  } else { dw.style.display = "none"; dw.innerHTML = ""; }
+    dw.style.display = ""; dw.classList.toggle("done", view.revealed); // aufgedeckt: Deck nicht mehr über dem Ergebnis schweben lassen
+    setHTML(dw, `<div class="deck" role="group" aria-label="Deine Schätzung">${SCALE.map(v =>
+      `<button class="dcard" data-act="vote" data-v="${esc(v)}" aria-pressed="${me.myVote === v}" ${view.revealed ? "disabled" : ""} aria-label="${v === "?" ? "Unklar" : v === "☕" ? "Pause" : v}">${esc(v)}</button>`).join("")}</div>
+      <div class="deck-note">${view.revealed ? "Aufgedeckt. Warte auf die nächste Runde." : me.myVote != null ? "Gewählt. Nochmals tippen zum Zurücknehmen." : "Wähle deine Karte."}</div>`);
+  } else { dw.style.display = "none"; setHTML(dw, ""); }
 
   /* Du */
   let meHtml = `<div class="who">${esc(self ? self.name : "…")}</div>`;
   if (isHost) {
-    meHtml += `<label class="check"><input type="checkbox" id="hostVotes" ${self && self.role === "voter" ? "checked" : ""}> Ich schätze mit</label>
-      <button class="btn small" data-act="end">Session beenden</button>`;
+    meHtml += `<stzh-toggle id="hostVotes" label="Ich schätze mit" hide-optional${self && self.role === "voter" ? " checked" : ""}></stzh-toggle>
+      <stzh-button variant="secondary" size="small" icon="close" data-act="end">Session beenden</stzh-button>`;
   } else if (self) {
-    meHtml += `<div class="seg" role="group" aria-label="Rolle">
-      <button data-act="role" data-v="voter" aria-pressed="${self.role === "voter"}">Mitschätzen</button>
-      <button data-act="role" data-v="observer" aria-pressed="${self.role === "observer"}">Nur zuschauen</button></div>`;
+    meHtml += `<stzh-radiogroup id="roleGroup" legend="Rolle" hide-legend direction="horizontal" value="${self.role}">
+      <stzh-radio value="voter" label="Mitschätzen"${self.role === "voter" ? " checked" : ""}></stzh-radio>
+      <stzh-radio value="observer" label="Nur zuschauen"${self.role === "observer" ? " checked" : ""}></stzh-radio></stzh-radiogroup>`;
   }
-  $("#me").innerHTML = meHtml;
+  setHTML($("#me"), meHtml);
 }
 
 /* ================= Start ================= */
-const code0 = clean(params.get("s"), 6).toUpperCase().replace(/[^A-Z0-9]/g, "");
-if (code0.length === 6) openSession(code0);
+const code0 = parseCode(params.get("s"));
+if (code0) openSession(code0);
 else showStart();
 db().catch(() => {}); // Verbindung schon vorbereiten
 </script>

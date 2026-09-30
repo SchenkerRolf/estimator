@@ -3,11 +3,12 @@
 Ein schlankes Schätz-Tool für Backlog Refinements und Sprint Plannings. Kein Login, keine Paywall, und es wird nichts gespeichert.
 
 ## Funktionen
-- Die Moderation startet eine Session und teilt den Link. Alle anderen geben nur ihren Namen ein.
+- Die Moderation startet eine Session und teilt den Link oder den dreistelligen Code (z. B. 427). Alle anderen geben nur ihren Namen ein.
 - Skala: **0.5 · 1 · 2 · 3 · 5 · ? · ☕**
 - Rollen: Moderation (schätzt wahlweise mit), Schätzende und Zuschauende (z. B. PO)
 - Die Karten werden automatisch aufgedeckt, sobald alle gewählt haben. Die Moderation kann auch früher aufdecken.
 - Bei Abweichungen werden der tiefste und der höchste Wert mit Namen hervorgehoben. Danach folgt eine neue Runde.
+- Nach dem Aufdecken zeigt ein Kreisdiagramm die Verteilung der Stimmen.
 - Kein Backlog: Ihr besprecht das Item im Ticketsystem. Die Moderation startet mit «Neue Runde» bzw. «Neu starten» die nächste Abstimmung.
 
 ## So funktioniert es technisch
@@ -27,8 +28,20 @@ Das Tool ist eine einzige Datei `index.html`. Die Echtzeit-Verbindung läuft üb
 2. Unter *Authentication → Anmeldemethode* muss **Anonym** aktiviert sein.
 3. Optional: In der Google Cloud Console den API-Key auf die eigene Domain beschränken (HTTP-Referrer).
 
+### Designsystem
+Die Oberfläche nutzt das Designsystem der Stadt Zürich: `@oiz/stzh-components` 4.16.0, geladen über jsDelivr.
+- **Komponenten:** Buttons, Eingabefelder, Radiogroup, Toggle, Status, Meldungen, Toasts, Dialog und Loader kommen aus dem Designsystem.
+- **Eigene Elemente:** Die Schätzkarten und das Kreisdiagramm sind eigene Elemente. Sie verwenden aber ausschliesslich die Farb-, Schrift- und Abstands-Tokens des Systems.
+- **Kreisdiagramm:** Die Farben kommen aus der Rampe midnightblue 40–80, «?» und «☕» aus coolgrey.
+- **Kein Dunkelmodus:** Das Designsystem bietet keinen.
+
 ### Netzwerk
-Die Browser müssen `*.firebasedatabase.app`, `identitytoolkit.googleapis.com`, `securetoken.googleapis.com` und `www.gstatic.com` erreichen können.
+Die Browser müssen diese Adressen erreichen können:
+- `cdn.jsdelivr.net`
+- `*.firebasedatabase.app`
+- `identitytoolkit.googleapis.com`
+- `securetoken.googleapis.com`
+- `www.gstatic.com`
 
 ## Optionen
 - `?transport=local`: Testmodus ohne Firebase. Er funktioniert nur zwischen Tabs im selben Browser.
