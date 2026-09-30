@@ -247,6 +247,21 @@ function confirmDialog(title, text, okLabel) {
     dlg.show();
   });
 }
+// Technische Fehler in verständliche Hinweise übersetzen (inkl. Fehlercode für die Fehlersuche)
+function describeError(e) {
+  const raw = `${(e && e.code) || ""} ${(e && e.message) || e || ""}`;
+  const t = raw.toLowerCase();
+  let hint;
+  if (t.includes("referer") || t.includes("referrer")) hint = "Der API-Key ist für diese Adresse gesperrt. In der Google Cloud Console bei «Websites» die genaue Adresse dieser Seite eintragen, z. B. https://BENUTZERNAME.github.io/*";
+  else if (t.includes("api-key-service-blocked") || t.includes("api_key_service_blocked") || t.includes("are blocked")) hint = "Der API-Key darf die Anmeldung nicht verwenden. In der Google Cloud Console bei den API-Einschränkungen «Identity Toolkit API» und «Token Service API» erlauben.";
+  else if (t.includes("api-key-not-valid") || t.includes("invalid-api-key")) hint = "Der API-Key in index.html ist ungültig.";
+  else if (t.includes("operation-not-allowed") || t.includes("admin-restricted-operation")) hint = "Die anonyme Anmeldung ist in Firebase nicht aktiviert (Authentication → Anmeldemethode → Anonym).";
+  else if (t.includes("permission_denied") || t.includes("permission denied") || t.includes("permission-denied")) hint = "Die Datenbank-Regeln verweigern den Zugriff. Sind die aktuellen Regeln aus database.rules.json in Firebase veröffentlicht?";
+  else if (t.includes("network-request-failed") || t.includes("failed to fetch") || t.includes("networkerror")) hint = "Keine Verbindung zu Google/Firebase. Eventuell blockiert ein Netzwerkfilter googleapis.com oder firebasedatabase.app.";
+  else hint = "Unbekannter Fehler.";
+  const code = clean(raw, 160);
+  return code ? `${hint} (Technisch: ${code})` : hint;
+}
 // Nur neu zeichnen, wenn sich der Inhalt geändert hat (Web Components nicht unnötig neu erzeugen)
 function setHTML(el, html) { if (el && el.__html !== html) { el.__html = html; el.innerHTML = html; } }
 const valueOf = el => (el ? String(el.value ?? "") : "");
@@ -295,7 +310,7 @@ function showStart(msg) {
     store.set("sr-name", name);
     const b = $("#bStart"); b.disabled = true; $("#eStart").textContent = "";
     try { const code = await createSession(name); openSession(code); }
-    catch (err) { console.error(err); $("#eStart").textContent = "Session konnte nicht erstellt werden. Verbindung prüfen und nochmals versuchen."; b.disabled = false; }
+    catch (err) { console.error(err); $("#eStart").textContent = "Session konnte nicht erstellt werden. " + describeError(err); b.disabled = false; }
   };
   $("#fJoin").onsubmit = e => {
     e.preventDefault();
@@ -334,7 +349,7 @@ function showJoin(code) {
       const d = await db();
       await d.update({ [P.person(code, d.uid)]: { name, role, online: true, joinedAt: d.TS } });
       enterRoom(code);
-    } catch (err) { console.error(err); $("#eJoin").textContent = "Beitreten fehlgeschlagen. Existiert die Session noch?"; b.disabled = false; }
+    } catch (err) { console.error(err); $("#eJoin").textContent = "Beitreten fehlgeschlagen. " + describeError(err); b.disabled = false; }
   };
 }
 
@@ -427,6 +442,7 @@ function analyze(people) {
 async function createSession(name) {
   const d = await db();
   await cleanupStale(); // alte, vergessene Sessions zuerst entfernen – gibt Codes frei
+  let lastErr = null, denied = 0;
   for (let i = 0; i < 40; i++) {
     const code = genCode();
     const meta = await d.get(P.meta(code));
@@ -442,9 +458,13 @@ async function createSession(name) {
         [`index/${code}`]: d.TS,
       });
       return code;
-    } catch (e) { console.warn("Code", code, "nicht verfügbar", e); } // gleichzeitig vergeben → nächster Versuch
+    } catch (e) {
+      console.warn("Code", code, "nicht verfügbar", e); // evtl. gleichzeitig vergeben → nächster Versuch
+      lastErr = e;
+      if (String(e && (e.code || e.message)).toLowerCase().includes("permission") && ++denied >= 3) throw e; // Regeln blockieren grundsätzlich
+    }
   }
-  throw new Error("Kein freier Code gefunden");
+  throw lastErr || new Error("Kein freier Code gefunden");
 }
 
 async function cleanupStale() {
@@ -460,13 +480,13 @@ async function openSession(code) {
   showLoading("Verbinde mit der Session…");
   let d;
   try { d = await db(); }
-  catch (e) { console.error(e); return showError("Die Verbindung zum Server konnte nicht aufgebaut werden. Eventuell blockiert ein Netzwerkfilter firebasedatabase.app bzw. googleapis.com."); }
+  catch (e) { console.error(e); return showError("Die Verbindung zum Server konnte nicht aufgebaut werden. " + describeError(e)); }
   try {
     const meta = await d.get(P.meta(code));
     if (!meta) return showStart(`Die Session ${code} gibt es nicht (mehr).`);
     const me = await d.get(P.person(code, d.uid));
     if (me) enterRoom(code); else showJoin(code);
-  } catch (e) { console.error(e); showError("Die Session konnte nicht geladen werden."); }
+  } catch (e) { console.error(e); showError("Die Session konnte nicht geladen werden. " + describeError(e)); }
 }
 
 /* ================= Raum ================= */
