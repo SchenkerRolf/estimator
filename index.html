@@ -174,6 +174,14 @@ h1,h2{font-family:var(--f-heavy);font-weight:normal;margin:0;letter-spacing:-.01
     <stzh-button slot="secondary" variant="secondary" id="confirmCancel">Abbrechen</stzh-button>
   </stzh-actions>
 </stzh-dialog>
+<stzh-dialog id="pick" heading="Moderation übergeben" close-on-escape-key>
+  <stzh-text><p id="pickText">Wer soll die Moderation übernehmen?</p></stzh-text>
+  <div id="pickList" style="margin-top:var(--space-m)"></div>
+  <stzh-actions slot="actions" variant="dialog">
+    <stzh-button slot="primary" id="pickOk">Übergeben</stzh-button>
+    <stzh-button slot="secondary" variant="secondary" id="pickCancel">Abbrechen</stzh-button>
+  </stzh-actions>
+</stzh-dialog>
 
 <script type="module">
 /* =====================================================================
@@ -244,6 +252,27 @@ function confirmDialog(title, text, okLabel) {
     const ok = () => finish(true), no = () => finish(false), closed = () => finish(false);
     const cleanup = () => { $("#confirmOk").removeEventListener("click", ok); $("#confirmCancel").removeEventListener("click", no); dlg.removeEventListener("stzhClose", closed); };
     $("#confirmOk").addEventListener("click", ok); $("#confirmCancel").addEventListener("click", no); dlg.addEventListener("stzhClose", closed);
+    dlg.show();
+  });
+}
+// Auswahldialog (stzh-dialog + stzh-radiogroup), Fallback: nummerierte Abfrage
+function pickDialog(options) {
+  const dlg = $("#pick");
+  if (!customElements.get("stzh-dialog") || typeof dlg.show !== "function") {
+    const n = parseInt(prompt("Moderation übergeben an:\n" + options.map((o, i) => `${i + 1}: ${o.label}`).join("\n")), 10);
+    return Promise.resolve(options[n - 1] ? options[n - 1].value : null);
+  }
+  $("#pickList").innerHTML = `<stzh-radiogroup id="pickGroup" legend="Person" hide-legend value="${esc(options[0].value)}">${options.map((o, i) =>
+    `<stzh-radio value="${esc(o.value)}" label="${esc(o.label)}"${i === 0 ? " checked" : ""}></stzh-radio>`).join("")}</stzh-radiogroup>`;
+  let chosen = options[0].value;
+  const grp = $("#pickGroup");
+  grp.addEventListener("stzhChange", e => { e.stopPropagation(); if (e.detail && e.detail.value) chosen = e.detail.value; });
+  return new Promise(res => {
+    let done = false;
+    const finish = v => { if (done) return; done = true; cleanup(); dlg.hide(); res(v); };
+    const ok = () => finish(options.some(o => o.value === chosen) ? chosen : null), no = () => finish(null), closed = () => finish(null);
+    const cleanup = () => { $("#pickOk").removeEventListener("click", ok); $("#pickCancel").removeEventListener("click", no); dlg.removeEventListener("stzhClose", closed); };
+    $("#pickOk").addEventListener("click", ok); $("#pickCancel").addEventListener("click", no); dlg.addEventListener("stzhClose", closed);
     dlg.show();
   });
 }
@@ -564,9 +593,15 @@ async function enterRoom(code) {
     else unVotes = d.onValue(P.vote(code, uid), v => { S.votes = v ? { [uid]: v } : {}; render(); }, () => {});
   }
 
+  let prevHost = null, selfTakeover = false;
   function render() {
     if (S.meta === undefined || S.people === undefined) return;
     const v = view();
+    if (prevHost && prevHost !== v.host && v.host === uid && !selfTakeover) {
+      const from = v.people.find(p => p.cid === prevHost);
+      toast(`${from ? from.name : "Die Moderation"} hat dir die Moderation übergeben.`, "success");
+    }
+    prevHost = v.host; selfTakeover = false;
     renderRoom(v, { cid: uid, myVote: myVote(), connected: S.connected });
     // Automatisch aufdecken, sobald alle (online) Schätzenden gewählt haben – das darf jede:r auslösen
     if (!v.revealed && autoRevealDone !== v.round && v.people.some(p => p.cid === uid)) {
@@ -617,8 +652,18 @@ async function enterRoom(code) {
     },
     kick(cid) { d.update({ [P.person(code, cid)]: null }).catch(e => fail(e, "Entfernen")); },
     takeover() {
+      selfTakeover = true;
       d.update({ [P.meta(code) + "/host"]: uid, [P.meta(code) + "/updatedAt"]: d.TS, [`index/${code}`]: d.TS })
         .then(() => toast("Du moderierst jetzt", "success")).catch(e => fail(e, "Übernehmen"));
+    },
+    async handover() {
+      const cands = view().people.filter(p => p.cid !== uid && p.online);
+      if (!cands.length) return toast("Gerade ist niemand sonst online.", "warning");
+      const target = await pickDialog(cands.map(p => ({ value: p.cid, label: p.name + (p.role === "observer" ? " (zuschauend)" : "") })));
+      if (!target) return;
+      const who = cands.find(p => p.cid === target);
+      d.update({ [P.meta(code) + "/host"]: target, [P.meta(code) + "/updatedAt"]: d.TS, [`index/${code}`]: d.TS })
+        .then(() => toast(`${who ? who.name : "Die Person"} moderiert jetzt.`, "success")).catch(e => fail(e, "Übergeben"));
     },
     async end() {
       if (!await confirmDialog("Session beenden?", "Die Session wird für alle beendet und alle Daten dieser Session werden gelöscht.", "Session beenden")) return;
@@ -779,6 +824,7 @@ function renderRoom(view, me) {
   let meHtml = `<div class="who">${esc(self ? self.name : "…")}</div>`;
   if (isHost) {
     meHtml += `<stzh-toggle id="hostVotes" label="Ich schätze mit" hide-optional${self && self.role === "voter" ? " checked" : ""}></stzh-toggle>
+      <stzh-button variant="secondary" size="small" icon="team" data-act="handover">Moderation übergeben</stzh-button>
       <stzh-button variant="secondary" size="small" icon="close" data-act="end">Session beenden</stzh-button>`;
   } else if (self) {
     meHtml += `<stzh-radiogroup id="roleGroup" legend="Rolle" hide-legend direction="horizontal" value="${self.role}">

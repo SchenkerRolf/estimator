@@ -20,6 +20,7 @@ Das Tool ist eine einzige Datei `index.html`. Die Echtzeit-Verbindung läuft üb
   - Stimmen erst nach dem Aufdecken lesbar sind,
   - jede Person nur ihre eigene Stimme setzen kann,
   - nur die Moderation neue Runden startet oder Personen entfernt.
+- Die Moderation kann jederzeit an eine andere Person übergeben werden, die gerade online ist.
 - Schliesst die Moderation den Tab, läuft die Session weiter. Die anderen können die Moderation übernehmen.
 - Die Firebase-Konfiguration in `index.html` ist kein Geheimnis. Geschützt wird der Zugriff durch die Regeln.
 
