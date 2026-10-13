@@ -9,6 +9,7 @@ Ein schlankes Schätz-Tool für Backlog Refinements und Sprint Plannings. Kein L
 - Die Karten werden automatisch aufgedeckt, sobald alle gewählt haben. Die Moderation kann auch früher aufdecken.
 - Bei Abweichungen werden der tiefste und der höchste Wert mit Namen hervorgehoben. Danach folgt eine neue Runde.
 - Nach dem Aufdecken zeigt ein Kreisdiagramm die Verteilung der Stimmen.
+- Sind sich alle einig, die eine Zahl gewählt haben (mindestens zwei Personen; «?» und «☕» zählen nicht), gibt es ein kurzes Feuerwerk.
 - Kein Backlog: Ihr besprecht das Item im Ticketsystem. Die Moderation startet mit «Neue Runde» bzw. «Neu starten» die nächste Abstimmung.
 
 ## So funktioniert es technisch

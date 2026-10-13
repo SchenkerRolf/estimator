@@ -596,6 +596,7 @@ async function enterRoom(code) {
   }
 
   let prevHost = null, selfTakeover = false;
+  let celebrated = null, firstMeta = true; // Runde, für die schon gefeiert wurde
   function render() {
     if (S.meta === undefined || S.people === undefined) return;
     const v = view();
@@ -605,6 +606,11 @@ async function enterRoom(code) {
     }
     prevHost = v.host; selfTakeover = false;
     renderRoom(v, { cid: uid, myVote: myVote(), connected: S.connected });
+    // Feuerwerk: alle, die eine Zahl gewählt haben (mind. 2 Personen), sind sich einig – «?» und «☕» zählen nicht
+    if (v.revealed && celebrated !== v.round) {
+      const A = analyze(v.people);
+      if (A.nums.length >= 2 && A.consensus) { celebrated = v.round; fireworks(); }
+    }
     // Automatisch aufdecken, sobald alle (online) Schätzenden gewählt haben – das darf jede:r auslösen
     if (!v.revealed && autoRevealDone !== v.round && v.people.some(p => p.cid === uid)) {
       const el = v.people.filter(p => p.role === "voter" && p.online);
@@ -688,6 +694,7 @@ async function enterRoom(code) {
   }));
   unsubs.push(d.onValue(P.meta(code), m => {
     if (!m) return leave("Die Session wurde beendet.");
+    if (firstMeta) { firstMeta = false; if (m.revealed) celebrated = m.round; } // beim Neuladen nicht erneut feiern
     S.meta = m; watchVotes(); render();
   }, e => { console.error(e); leave("Kein Zugriff auf diese Session."); }));
   let wasIn = false;
@@ -702,6 +709,52 @@ async function enterRoom(code) {
     }
     wasIn = inNow; render();
   }, e => console.error(e)));
+}
+
+/* Feuerwerk bei Einigkeit – Farben aus dem Designsystem, respektiert «weniger Bewegung» */
+function fireworks() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cs = getComputedStyle(document.documentElement);
+  const tok = (n, f) => (cs.getPropertyValue(n).trim() || f);
+  const colors = [tok("--stzh-color-midnightblue60", "#3431DE"), tok("--stzh-color-cobaltblue40", "#46B2FF"), tok("--stzh-color-orange50", "#F18830"),
+                  tok("--stzh-color-warning50", "#FFCC00"), tok("--stzh-color-magenta50", "#E93C85"), tok("--stzh-color-success50", "#64C04F")];
+  const cv = document.createElement("canvas");
+  cv.setAttribute("aria-hidden", "true");
+  cv.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:40";
+  document.body.appendChild(cv);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2), W = innerWidth, H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext("2d"); ctx.scale(dpr, dpr);
+  const parts = [], rockets = [];
+  const bursts = Math.max(4, Math.min(8, Math.round(W / 180)));
+  for (let i = 0; i < bursts; i++) rockets.push({ t: i * 280 + Math.random() * 200, x: W * (0.12 + Math.random() * 0.76), y: H * (0.15 + Math.random() * 0.35), done: false });
+  const start = performance.now(); let last = start;
+  function explode(r) {
+    const c1 = colors[Math.floor(Math.random() * colors.length)], c2 = colors[Math.floor(Math.random() * colors.length)];
+    const n = 90;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.1, sp = 2.6 + Math.random() * 3.6;
+      parts.push({ x: r.x, y: r.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: 0.010 + Math.random() * 0.010, c: i % 2 ? c1 : c2, s: 3 + Math.random() * 2.5 });
+    }
+  }
+  function frame(now) {
+    const dt = Math.min(2.5, (now - last) / 16.7); last = now;
+    const el = now - start;
+    rockets.forEach(r => { if (!r.done && el >= r.t) { r.done = true; explode(r); } });
+    ctx.clearRect(0, 0, W, H);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.vx *= Math.pow(0.985, dt); p.vy = p.vy * Math.pow(0.985, dt) + 0.06 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.life -= p.decay * dt;
+      if (p.life <= 0) { parts.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.c;
+      ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);   // eckige Funken – passend zum Designsystem ohne Rundungen
+    }
+    if (rockets.every(r => r.done) && !parts.length) { cv.remove(); return; }
+    if (el > 7000) { cv.remove(); return; } // Sicherheitsnetz
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 }
 
 /* Kreisdiagramm (Donut) der Stimmen – Farbe folgt dem Wert, nie der Rangfolge */
@@ -799,7 +852,7 @@ function renderRoom(view, me) {
     const chart = donut(A.counts);
     if (!A.voted.length) res = `<p class="hint">Niemand hat gewählt.</p>`;
     else if (!A.nums.length) res = `<div class="big">Keine Zahlen-Schätzung</div><p class="hint">Klärt die offenen Fragen und startet eine neue Runde.</p>${chart}`;
-    else if (A.consensus) res = `<div class="big">Einig: ${esc(A.nums[0].vote)}</div>${chart}`;
+    else if (A.consensus) res = `<div class="big">${A.nums.length >= 2 ? "Einig" : "Ergebnis"}: ${esc(A.nums[0].vote)}</div>${chart}`;
     else {
       const names = arr => arr.map(p => esc(p.name)).join(", ");
       res = `<div class="spread">
