@@ -37,9 +37,10 @@
   --high: var(--stzh-color-orange70, #B23A01);
   --high-bg: var(--stzh-color-orange10, #FEF5EA);
   --high-line: var(--stzh-color-orange60, #EB5E00);
-  /* Diagramm: ordinale Rampe aus midnightblue 40–80 (validiert), Sonderkarten in coolgrey */
-  --v-05: var(--stzh-color-midnightblue40, #6496FF);
-  --v-1:  var(--stzh-color-midnightblue50, #3D6BFF);
+  /* Diagramm: ordinale Rampe aus midnightblue 30–80 (validiert), Sonderkarten in coolgrey */
+  --v-05: var(--stzh-color-midnightblue30, #94B7F8);
+  --v-1:  var(--stzh-color-midnightblue40, #6496FF);
+  --v-15: var(--stzh-color-midnightblue50, #3D6BFF);
   --v-2:  var(--stzh-color-midnightblue60, #3431DE);
   --v-3:  var(--stzh-color-midnightblue70, #0F05A0);
   --v-5:  var(--stzh-color-midnightblue80, #070066);
@@ -136,11 +137,11 @@ h1,h2{font-family:var(--f-heavy);font-weight:normal;margin:0;letter-spacing:-.01
 .donut .mid{position:absolute;inset:0;display:grid;place-items:center;text-align:center;pointer-events:none}
 .donut .mid b{display:block;font-family:var(--f-heavy);font-weight:normal;font-size:1.75rem;line-height:1.1}
 .donut .mid span{font-size:.75rem;color:var(--muted)}
-.legend{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:14px max-content 3.5ch 5ch;justify-content:start;gap:.5rem .875rem;align-items:center;font-size:.9375rem}
+.legend{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:14px max-content 3.5ch 6ch;justify-content:start;gap:.5rem .875rem;align-items:center;font-size:.9375rem}
 .legend li{display:contents}
 .legend .sw{width:14px;height:14px}
 .legend .lv{font-family:var(--f-medium)}
-.legend .lc,.legend .lp{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.legend .lc,.legend .lp{white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
 .legend li.hl>*{color:var(--text)}
 .legend li.hl .lv{text-decoration:underline;text-underline-offset:3px}
 .tip{position:fixed;z-index:30;pointer-events:none;background:var(--text);color:var(--bg);font-size:.875rem;padding:.375rem .625rem;white-space:nowrap;opacity:0;transform:translate(-50%,calc(-100% - 10px));transition:opacity .1s}
@@ -152,7 +153,8 @@ h1,h2{font-family:var(--f-heavy);font-weight:normal;margin:0;letter-spacing:-.01
 .dcard:hover:not(:disabled){background:var(--primary-10);transform:translateY(-4px)}
 .dcard[aria-pressed="true"]{transform:translateY(-10px);background:var(--primary);color:var(--stzh-color-white, #fff)}
 .dcard:disabled{opacity:.4;cursor:not-allowed}
-@media (max-width:420px){.dcard{width:44px;height:64px;font-size:1.125rem}.deck{gap:.375rem}}
+@media (max-width:520px){.dcard{width:48px;height:68px;font-size:1.25rem}.deck{gap:.375rem}}
+@media (max-width:420px){.dcard{width:36px;height:54px;font-size:1rem}.deck{gap:.25rem}}
 .deck-wrap.done{position:static;background:none}
 @media (max-width:520px){.appbar{position:static}}
 .deck-note{text-align:center;font-size:.875rem;color:var(--muted);margin-top:var(--space-xs)}
@@ -201,8 +203,8 @@ const FIREBASE_CONFIG = {
 const FIREBASE_VERSION = "12.19.0";
 
 /* ================= Konfiguration ================= */
-const SCALE   = ["0.5", "1", "2", "3", "5", "?", "☕"];
-const NUMERIC = { "0.5": 0.5, "1": 1, "2": 2, "3": 3, "5": 5 };
+const SCALE   = ["0.5", "1", "1.5", "2", "3", "5", "?", "☕"];
+const NUMERIC = { "0.5": 0.5, "1": 1, "1.5": 1.5, "2": 2, "3": 3, "5": 5 };
 const STALE_MS = 12 * 60 * 60 * 1000;     // Sessions ohne Änderung seit 12 h werden aufgeräumt
 const params = new URLSearchParams(location.search);
 const USE_LOCAL = params.get("transport") === "local"; // Testmodus ohne Firebase (Tabs im selben Browser)
@@ -703,7 +705,7 @@ async function enterRoom(code) {
 }
 
 /* Kreisdiagramm (Donut) der Stimmen – Farbe folgt dem Wert, nie der Rangfolge */
-const VCOLOR = { "0.5": "--v-05", "1": "--v-1", "2": "--v-2", "3": "--v-3", "5": "--v-5", "?": "--v-q", "☕": "--v-c" };
+const VCOLOR = { "0.5": "--v-05", "1": "--v-1", "1.5": "--v-15", "2": "--v-2", "3": "--v-3", "5": "--v-5", "?": "--v-q", "☕": "--v-c" };
 const VLABEL = { "?": "? (unklar)", "☕": "☕ (Pause)" };
 function donut(counts) {
   const entries = SCALE.filter(k => counts[k]).map(k => [k, counts[k]]);

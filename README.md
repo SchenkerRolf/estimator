@@ -4,7 +4,7 @@ Ein schlankes Schätz-Tool für Backlog Refinements und Sprint Plannings. Kein L
 
 ## Funktionen
 - Die Moderation startet eine Session und teilt den Link oder den dreistelligen Code (z. B. 427). Alle anderen geben nur ihren Namen ein.
-- Skala: **0.5 · 1 · 2 · 3 · 5 · ? · ☕**
+- Skala: **0.5 · 1 · 1.5 · 2 · 3 · 5 · ? · ☕**
 - Rollen: Moderation (schätzt wahlweise mit), Schätzende und Zuschauende (z. B. PO)
 - Die Karten werden automatisch aufgedeckt, sobald alle gewählt haben. Die Moderation kann auch früher aufdecken.
 - Bei Abweichungen werden der tiefste und der höchste Wert mit Namen hervorgehoben. Danach folgt eine neue Runde.
@@ -33,7 +33,7 @@ Das Tool ist eine einzige Datei `index.html`. Die Echtzeit-Verbindung läuft üb
 Die Oberfläche nutzt das Designsystem der Stadt Zürich: `@oiz/stzh-components` 4.16.0, geladen über jsDelivr.
 - **Komponenten:** Buttons, Eingabefelder, Radiogroup, Toggle, Status, Meldungen, Toasts, Dialog und Loader kommen aus dem Designsystem.
 - **Eigene Elemente:** Die Schätzkarten und das Kreisdiagramm sind eigene Elemente. Sie verwenden aber ausschliesslich die Farb-, Schrift- und Abstands-Tokens des Systems.
-- **Kreisdiagramm:** Die Farben kommen aus der Rampe midnightblue 40–80, «?» und «☕» aus coolgrey.
+- **Kreisdiagramm:** Die Farben kommen aus der Rampe midnightblue 30–80, «?» und «☕» aus coolgrey.
 - **Kein Dunkelmodus:** Das Designsystem bietet keinen.
 
 ### Netzwerk
